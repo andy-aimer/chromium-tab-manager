@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Tab Manager (Local Only)",
+  "description": "Optimized local window/tab manager without cloud features.",
+  "version": "1.0.0",
+  "action": {
+    "default_title": "Tab Manager"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "bookmarks",
+    "storage",
+    "notifications"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "commands": {
+    "open-tab-manager": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+M",
+        "mac": "Command+Shift+M"
+      },
+      "description": "Open Tab Manager"
+    }
+  }
+}

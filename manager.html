@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tab Manager</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Tab Manager</h1>
+        <p class="subtitle">Fast, local window & tab snapshots</p>
+      </div>
+      <div class="actions">
+        <button id="refresh-btn">Refresh</button>
+        <button id="save-all-btn" class="primary">Save All Windows</button>
+        <label class="column-picker">Columns
+          <select id="column-count">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <div class="section-header">
+          <h2>Active Windows</h2>
+          <span id="active-count" class="meta"></span>
+        </div>
+        <div id="active-list" class="list card-columns"></div>
+      </section>
+
+      <section>
+        <div class="section-header">
+          <h2>Saved Sessions</h2>
+          <span id="saved-count" class="meta"></span>
+        </div>
+        <div id="saved-list" class="list"></div>
+      </section>
+    </main>
+
+    <template id="window-template">
+      <article class="card">
+        <div class="card-header">
+          <button class="toggle-tabs" aria-label="Toggle tabs">▾</button>
+          <div>
+            <h3 class="title"></h3>
+            <p class="meta text-sm"></p>
+          </div>
+          <div class="card-actions"></div>
+        </div>
+        <div class="tab-list"></div>
+      </article>
+    </template>
+
+    <template id="session-template">
+      <article class="card session-card">
+        <div class="card-header">
+          <button class="toggle-tabs" aria-label="Toggle tabs">▾</button>
+          <div>
+            <h3 class="title"></h3>
+            <p class="meta text-sm saved-meta"></p>
+          </div>
+          <div class="card-actions"></div>
+        </div>
+      </article>
+    </template>
+
+    <script src="manager.js" type="module"></script>
+  </body>
+</html>
