@@ -16,9 +16,6 @@
     "storage",
     "notifications"
   ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
   "commands": {
     "open-tab-manager": {
       "suggested_key": {

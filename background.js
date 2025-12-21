@@ -1,6 +1,15 @@
 const STORAGE_KEY = 'tab-manager:sessions';
 const WINDOW_TITLES_KEY = 'tab-manager:window-titles';
 const MANAGER_URL = chrome.runtime.getURL('manager.html');
+let storagePromise = Promise.resolve();
+
+function queueStorageOperation(operation) {
+  const next = storagePromise.then(operation);
+  storagePromise = next.catch(err => {
+    console.error('Storage operation failed:', err);
+  });
+  return next;
+}
 
 async function openManagerTab() {
   const [existing] = await chrome.tabs.query({ url: MANAGER_URL });
@@ -18,14 +27,16 @@ async function loadWindowTitles() {
 }
 
 async function saveWindowTitle(windowId, title) {
-  const titles = await loadWindowTitles();
-  if (!title || !title.trim()) {
-    delete titles[windowId];
-  } else {
-    titles[windowId] = title.trim();
-  }
-  await chrome.storage.local.set({ [WINDOW_TITLES_KEY]: titles });
-  return { windowId, title: titles[windowId] || '' };
+  return queueStorageOperation(async () => {
+    const titles = await loadWindowTitles();
+    if (!title || !title.trim()) {
+      delete titles[windowId];
+    } else {
+      titles[windowId] = title.trim();
+    }
+    await chrome.storage.local.set({ [WINDOW_TITLES_KEY]: titles });
+    return { windowId, title: titles[windowId] || '' };
+  });
 }
 
 async function fetchTabGroups(windows) {
@@ -114,64 +125,70 @@ async function persistSessions(sessions) {
 }
 
 async function saveWindow(winId, title) {
-  const windows = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
-  if (!winId) {
+  return queueStorageOperation(async () => {
+    const windows = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
+    if (!winId) {
+      const titles = await loadWindowTitles();
+      const sessions = await loadSessions();
+      windows.forEach(win => {
+        const entry = {
+          id: crypto.randomUUID(),
+          title: titles[win.id] || `Session • ${buildWindowTitle(win)}`,
+          savedAt: new Date().toISOString(),
+          tabs: (win.tabs || []).map(tab => ({
+            url: tab.url || tab.pendingUrl,
+            title: tab.title || 'Untitled',
+            pinned: tab.pinned,
+          })),
+        };
+        sessions.push(entry);
+      });
+      await persistSessions(sessions);
+      return sessions;
+    }
     const titles = await loadWindowTitles();
+    const win = windows.find(w => w.id === winId);
+    if (!win) {
+      throw new Error('Window not found');
+    }
     const sessions = await loadSessions();
-    windows.forEach(win => {
-      const entry = {
-        id: crypto.randomUUID(),
-        title: titles[win.id] || `Session • ${buildWindowTitle(win)}`,
-        savedAt: new Date().toISOString(),
-        tabs: (win.tabs || []).map(tab => ({
-          url: tab.url || tab.pendingUrl,
-          title: tab.title || 'Untitled',
-          pinned: tab.pinned,
-        })),
-      };
-      sessions.push(entry);
-    });
+    const entry = {
+      id: crypto.randomUUID(),
+      title: title || titles[winId] || buildWindowTitle(win),
+      savedAt: new Date().toISOString(),
+      tabs: (win.tabs || []).map(tab => ({
+        url: tab.url || tab.pendingUrl,
+        title: tab.title || 'Untitled',
+        pinned: tab.pinned,
+      })),
+    };
+    sessions.push(entry);
     await persistSessions(sessions);
-    return sessions;
-  }
-  const titles = await loadWindowTitles();
-  const win = windows.find(w => w.id === winId);
-  if (!win) {
-    throw new Error('Window not found');
-  }
-  const sessions = await loadSessions();
-  const entry = {
-    id: crypto.randomUUID(),
-    title: title || titles[winId] || buildWindowTitle(win),
-    savedAt: new Date().toISOString(),
-    tabs: (win.tabs || []).map(tab => ({
-      url: tab.url || tab.pendingUrl,
-      title: tab.title || 'Untitled',
-      pinned: tab.pinned,
-    })),
-  };
-  sessions.push(entry);
-  await persistSessions(sessions);
-  return entry;
+    return entry;
+  });
 }
 
 async function removeSession(sessionId) {
-  const sessions = await loadSessions();
-  const next = sessions.filter(session => session.id !== sessionId);
-  await persistSessions(next);
-  return next;
+  return queueStorageOperation(async () => {
+    const sessions = await loadSessions();
+    const next = sessions.filter(session => session.id !== sessionId);
+    await persistSessions(next);
+    return next;
+  });
 }
 
 async function renameSession(sessionId, title) {
-  const sessions = await loadSessions();
-  const session = sessions.find(entry => entry.id === sessionId);
-  if (!session) {
-    throw new Error('Session not found');
-  }
-  session.title = title;
-  session.savedAt = new Date().toISOString();
-  await persistSessions(sessions);
-  return session;
+  return queueStorageOperation(async () => {
+    const sessions = await loadSessions();
+    const session = sessions.find(entry => entry.id === sessionId);
+    if (!session) {
+      throw new Error('Session not found');
+    }
+    session.title = title;
+    session.savedAt = new Date().toISOString();
+    await persistSessions(sessions);
+    return session;
+  });
 }
 
 async function launchSession(sessionId, { reuse, focused }) {
@@ -219,6 +236,10 @@ async function assignToGroup(message) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (sender.id !== chrome.runtime.id) {
+    console.warn(`Ignoring message from unknown sender: ${sender.id}`);
+    return false;
+  }
   const respond = (data, isError) => {
     if (isError) {
       sendResponse({ ok: false, error: data.message || String(data) });

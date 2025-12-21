@@ -104,8 +104,8 @@ function createWindowCard(win) {
   titleEl.textContent = win.title;
   titleEl.classList.add('clickable');
   titleEl.addEventListener('click', () => activateInlineRename(titleEl, win.title, async value => {
-    await sendMessage({ type: 'rename-window', windowId: win.id, title: value });
-    await loadActiveWindows();
+    const updatedWindow = await sendMessage({ type: 'rename-window', windowId: win.id, title: value });
+    win.title = updatedWindow.title;
   }));
   const metaEl = card.querySelector('.meta');
   metaEl.textContent = `${win.tabs.length} tab(s)`;
@@ -219,8 +219,8 @@ function renderGroupSection(win, group, tabs) {
   chip.textContent = group.title;
   chip.style.setProperty('--group-color', colorToHex(group.color));
   chip.addEventListener('click', () => activateInlineRename(chip, group.title, async value => {
-    await sendMessage({ type: 'rename-group', groupId: group.id, title: value });
-    await loadActiveWindows();
+    const updatedGroup = await sendMessage({ type: 'rename-group', groupId: group.id, title: value });
+    group.title = updatedGroup.title || value;
   }));
   chip.draggable = true;
   chip.addEventListener('dragstart', handleGroupChipDragStart);
@@ -278,7 +278,11 @@ function createTabItem(win, tab) {
   item.dataset.index = tab.index;
   const icon = document.createElement('img');
   icon.className = 'tab-icon';
-  icon.src = tab.favicon || 'chrome://favicon';
+  const iconUrl = getFaviconUrl(tab);
+  icon.src = iconUrl;
+  if (!iconUrl) {
+    icon.style.visibility = 'hidden';
+  }
   icon.onerror = () => (icon.style.visibility = 'hidden');
   const label = document.createElement('span');
   label.textContent = tab.title;
@@ -297,6 +301,26 @@ function createTabItem(win, tab) {
   item.addEventListener('drop', handleTabDrop);
 
   return item;
+}
+
+function getFaviconUrl(tab) {
+  if (tab.favicon) {
+    return tab.favicon;
+  }
+  const fallback = 'chrome://favicon/size/16@2x/';
+  const url = tab.url || tab.pendingUrl;
+  if (!url) {
+    return '';
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return `${fallback}${parsed.origin}`;
+    }
+    return '';
+  } catch (err) {
+    return '';
+  }
 }
 
 function handleTabDragStart(event) {
@@ -353,7 +377,7 @@ function clearDropIndicator() {
     dropIndicator.remove();
   }
   if (dropState.target) {
-    dropState.target.classList.remove('drop-target-active');
+    dropState.target.classList.remove('drop-target-active', 'drag-target-before', 'drag-target-after');
   }
   dropState.visible = false;
   dropState.windowId = null;
@@ -365,56 +389,93 @@ function clearDropIndicator() {
 }
 
 function handleTabDragOver(event) {
-  if (!dragContext || dragContext.kind !== 'tab') {
+  if (!dragContext) {
     return;
   }
-  event.preventDefault();
   const target = event.currentTarget;
-  if (target.classList.contains('tab-item')) {
+  if (dragContext.kind === 'tab' && target.classList.contains('tab-item')) {
+    event.preventDefault();
     const rect = target.getBoundingClientRect();
     const before = event.clientY < rect.top + rect.height / 2;
     dropState.windowId = Number(target.dataset.windowId);
     dropState.tabId = Number(target.dataset.tabId);
     dropState.before = before;
     positionDropIndicator(target, before);
+    target.classList.toggle('drag-target-before', before);
+    target.classList.toggle('drag-target-after', !before);
+    event.dataTransfer.dropEffect = 'move';
+  } else if (dragContext.kind === 'group' && target.classList.contains('tab-item')) {
+    event.preventDefault();
+    const rect = target.getBoundingClientRect();
+    const before = event.clientY < rect.top + rect.height / 2;
+    dropState.windowId = Number(target.dataset.windowId);
+    dropState.tabId = Number(target.dataset.index);
+    dropState.before = before;
+    dropState.type = 'group-between';
+    positionDropIndicator(target, before);
+    event.dataTransfer.dropEffect = 'move';
   }
-  event.dataTransfer.dropEffect = 'move';
 }
 
 function handleTabDragLeave(event) {
-  if (event.currentTarget.classList.contains('tab-item')) {
+  if (!event.currentTarget.classList.contains('tab-item')) {
+    return;
+  }
+  if (dragContext && dragContext.kind === 'tab') {
+    return;
+  }
+  if (!event.currentTarget.contains(event.relatedTarget)) {
+    event.currentTarget.classList.remove('drag-target-before', 'drag-target-after');
     clearDropIndicator();
   }
 }
 
 async function handleTabDrop(event) {
-  if (!dragContext || dragContext.kind !== 'tab') {
+  if (!dragContext) {
     return;
   }
   event.preventDefault();
   const targetEl = event.currentTarget;
   const dataset = targetEl?.dataset || {};
-  const targetWindowId = Number(dataset.windowId ?? dropState.windowId ?? dragContext.windowId);
-  let targetIndex = Number(dataset.index ?? dropState.tabId ?? 0);
-  if (dropState.visible && dropState.tabId !== null) {
-    const targetTab = document.querySelector(`.tab-item[data-tab-id='${dropState.tabId}']`);
-    if (targetTab) {
-      targetIndex = Number(targetTab.dataset.index) + (dropState.before ? 0 : 1);
+  if (dragContext.kind === 'tab') {
+    const targetWindowId = Number(dataset.windowId ?? dropState.windowId ?? dragContext.windowId);
+    let targetIndex = Number(dataset.index ?? dropState.tabId ?? 0);
+    if (dropState.visible && dropState.tabId !== null) {
+      const targetTab = document.querySelector(`.tab-item[data-tab-id='${dropState.tabId}']`);
+      if (targetTab) {
+        targetIndex = Number(targetTab.dataset.index) + (dropState.before ? 0 : 1);
+      }
+    } else if (targetEl?.classList?.contains('drag-target-after')) {
+      targetIndex += 1;
     }
-  } else if (targetEl?.classList?.contains('drag-target-after')) {
-    targetIndex += 1;
+    try {
+      const movedTabId = dragContext.tabId;
+      await sendMessage({ type: 'move-tab', tabId: movedTabId, windowId: targetWindowId, index: targetIndex });
+      await loadActiveWindows();
+      requestAnimationFrame(() => markRelocatedTab(movedTabId, targetWindowId));
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      if (targetEl?.classList?.contains('tab-item')) {
+        targetEl.classList.remove('drag-target', 'drag-target-before', 'drag-target-after');
+      }
+      dragContext = null;
+      clearDropIndicator();
+    }
+    return;
   }
+  if (dragContext.kind !== 'group') {
+    return;
+  }
+  const windowId = Number(dataset.windowId ?? dropState.windowId ?? dragContext.windowId);
+  const referenceIndex = Number(dataset.index ?? dropState.tabId ?? 0);
+  const targetIndex = dropState.before ? referenceIndex : referenceIndex + 1;
   try {
-    const movedTabId = dragContext.tabId;
-    await sendMessage({ type: 'move-tab', tabId: movedTabId, windowId: targetWindowId, index: targetIndex });
+    await sendMessage({ type: 'move-group', groupId: dragContext.groupId, windowId, index: targetIndex });
     await loadActiveWindows();
-    requestAnimationFrame(() => markRelocatedTab(movedTabId, targetWindowId));
   } catch (err) {
     toast(err.message);
   } finally {
-    if (targetEl?.classList?.contains('tab-item')) {
-      targetEl.classList.remove('drag-target', 'drag-target-before', 'drag-target-after');
-    }
     dragContext = null;
     clearDropIndicator();
   }
@@ -537,6 +598,23 @@ async function handleGroupContainerDrop(event) {
   event.preventDefault();
   event.stopPropagation();
   const windowId = Number(event.currentTarget.dataset.windowId);
+  const tabItem = event.target.closest('.tab-item');
+  if (tabItem) {
+    const rect = tabItem.getBoundingClientRect();
+    const before = event.clientY < rect.top + rect.height / 2;
+    const referenceIndex = Number(tabItem.dataset.index ?? 0);
+    const targetIndex = before ? referenceIndex : referenceIndex + 1;
+    try {
+      await sendMessage({ type: 'move-group', groupId: dragContext.groupId, windowId, index: targetIndex });
+      await loadActiveWindows();
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      clearDropIndicator();
+      dragContext = null;
+    }
+    return;
+  }
   try {
     await sendMessage({ type: 'move-group', groupId: dragContext.groupId, windowId, index: -1 });
     await loadActiveWindows();

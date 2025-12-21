@@ -105,14 +105,21 @@ button.danger {
 
 .card-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 1rem;
   align-items: center;
+}
+
+.card-title {
+  flex: 1;
+  text-align: left;
+  min-width: 0;
 }
 
 .card-actions {
   display: flex;
   gap: .5rem;
+  margin-left: auto;
 }
 
 .tab-list {
