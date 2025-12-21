@@ -13,8 +13,14 @@
     "tabs",
     "tabGroups",
     "bookmarks",
+    "downloads",
+    "scripting",
     "storage",
     "notifications"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
   ],
   "commands": {
     "open-tab-manager": {

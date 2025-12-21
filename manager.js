@@ -1,14 +1,13 @@
 const activeListEl = document.getElementById('active-list');
-const savedListEl = document.getElementById('saved-list');
 const refreshBtn = document.getElementById('refresh-btn');
 const saveAllBtn = document.getElementById('save-all-btn');
 const windowTemplate = document.getElementById('window-template');
-const sessionTemplate = document.getElementById('session-template');
 const columnSelect = document.getElementById('column-count');
 const activeCountEl = document.getElementById('active-count');
-const savedCountEl = document.getElementById('saved-count');
+const saveMarkdownBtn = document.getElementById('save-markdown-btn');
 
 let dragContext = null;
+let activeWindowsCache = [];
 
 refreshBtn.addEventListener('click', () => loadAll());
 columnSelect.addEventListener('change', e => {
@@ -18,13 +17,33 @@ document.documentElement.style.setProperty('--column-count', columnSelect.value)
 saveAllBtn.addEventListener('click', async () => {
   saveAllBtn.disabled = true;
   try {
-    await sendMessage({ type: 'save-window', windowId: null, title: 'All Windows' });
-    await loadSessions();
-    toast('All windows saved');
+    const tabIds = await collectAllTabIds();
+    if (!tabIds.length) {
+      toast('No tabs available to save.');
+      return;
+    }
+    await saveMarkdownForTabIds(tabIds);
   } catch (err) {
     toast(err.message);
   } finally {
     saveAllBtn.disabled = false;
+  }
+});
+saveMarkdownBtn.addEventListener('click', async () => {
+  const selectedTabIds = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"))
+    .map(input => Number(input.dataset.tabId))
+    .filter(Boolean);
+  if (!selectedTabIds.length) {
+    toast('Select at least one tab to save.');
+    return;
+  }
+  saveMarkdownBtn.disabled = true;
+  try {
+    await saveMarkdownForTabIds(selectedTabIds);
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    saveMarkdownBtn.disabled = false;
   }
 });
 
@@ -80,18 +99,10 @@ function activateInlineRename(targetEl, currentValue, onSave) {
 
 async function loadActiveWindows() {
   const windows = await sendMessage({ type: 'get-active' });
+  activeWindowsCache = windows;
   activeListEl.innerHTML = '';
   activeCountEl.textContent = windows.length ? `${windows.length} window(s)` : 'No windows';
   windows.forEach(win => activeListEl.appendChild(createWindowCard(win)));
-}
-
-async function loadSessions() {
-  const sessions = await sendMessage({ type: 'get-sessions' });
-  savedListEl.innerHTML = '';
-  savedCountEl.textContent = sessions.length ? `${sessions.length} saved session(s)` : 'No sessions yet';
-  sessions
-    .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())
-    .forEach(session => savedListEl.appendChild(createSessionCard(session)));
 }
 
 function createWindowCard(win) {
@@ -100,6 +111,7 @@ function createWindowCard(win) {
   card.dataset.winId = win.id;
   const header = card.querySelector('.card-header');
   header.classList.add('compact-header');
+  const windowCheckbox = createSelectCheckbox('window', { windowId: win.id });
   const titleEl = card.querySelector('.title');
   titleEl.textContent = win.title;
   titleEl.classList.add('clickable');
@@ -114,12 +126,16 @@ function createWindowCard(win) {
   actions.replaceChildren();
 
   const saveBtn = document.createElement('button');
-  saveBtn.textContent = 'Save';
+  saveBtn.textContent = 'Save Markdown';
   saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = true;
     try {
-      await sendMessage({ type: 'save-window', windowId: win.id, title: win.title });
-      await loadSessions();
+      const tabIds = (win.tabs || []).map(tab => tab.id).filter(Boolean);
+      if (!tabIds.length) {
+        toast('No tabs to save in this window.');
+      } else {
+        await saveMarkdownForTabIds(tabIds);
+      }
     } catch (err) {
       toast(err.message);
     } finally {
@@ -128,6 +144,18 @@ function createWindowCard(win) {
   });
 
   actions.append(saveBtn);
+  header.append(windowCheckbox);
+  windowCheckbox.addEventListener('change', () => {
+    const tabCheckboxes = card.querySelectorAll("input[data-select-kind='tab']");
+    tabCheckboxes.forEach(input => {
+      input.checked = windowCheckbox.checked;
+    });
+    const groupCheckboxes = card.querySelectorAll("input[data-select-kind='group']");
+    groupCheckboxes.forEach(input => {
+      input.checked = windowCheckbox.checked;
+      input.indeterminate = false;
+    });
+  });
 
   const container = card.querySelector('.tab-list');
   container.classList.add('tab-collection');
@@ -211,8 +239,15 @@ function renderGroupSection(win, group, tabs) {
   header.dataset.dropTarget = 'group';
   header.dataset.groupId = group.id;
   header.dataset.windowId = win.id;
+  header.style.setProperty('--group-color', colorToHex(group.color));
   header.addEventListener('dragover', handleGroupDragOver);
   header.addEventListener('drop', handleGroupDrop);
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.className = 'toggle-tabs';
+  toggleBtn.type = 'button';
+  toggleBtn.setAttribute('aria-label', 'Toggle group tabs');
+  toggleBtn.textContent = group.collapsed ? '▸' : '▾';
 
   const chip = document.createElement('span');
   chip.className = 'group-chip';
@@ -226,10 +261,37 @@ function renderGroupSection(win, group, tabs) {
   chip.addEventListener('dragstart', handleGroupChipDragStart);
   chip.addEventListener('dragend', handleGroupChipDragEnd);
 
+  const groupCheckbox = createSelectCheckbox('group', { windowId: win.id, groupId: group.id });
   header.append(chip);
+  header.append(groupCheckbox);
+  header.append(toggleBtn);
+  groupCheckbox.addEventListener('change', () => {
+    section.querySelectorAll("input[data-select-kind='tab']").forEach(input => {
+      input.checked = groupCheckbox.checked;
+    });
+    const card = section.closest('.card');
+    if (card) {
+      updateWindowCheckboxState(card);
+    }
+  });
   section.appendChild(header);
   const list = renderTabList(win, tabs);
   list.style.setProperty('--group-color', colorToHex(group.color));
+  if (group.collapsed) {
+    list.setAttribute('hidden', '');
+  }
+  toggleBtn.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const collapsed = list.hasAttribute('hidden');
+    if (collapsed) {
+      list.removeAttribute('hidden');
+      toggleBtn.textContent = '▾';
+    } else {
+      list.setAttribute('hidden', '');
+      toggleBtn.textContent = '▸';
+    }
+  });
   const startIndex = tabs.length ? Math.min(...tabs.map(t => t.index)) : 0;
   const endIndex = tabs.length ? Math.max(...tabs.map(t => t.index)) : startIndex;
   section.dataset.groupStartIndex = String(startIndex);
@@ -286,7 +348,11 @@ function createTabItem(win, tab) {
   icon.onerror = () => (icon.style.visibility = 'hidden');
   const label = document.createElement('span');
   label.textContent = tab.title;
-  item.append(icon, label);
+  const tabCheckbox = createSelectCheckbox('tab', { windowId: win.id, groupId: tab.groupId, tabId: tab.id });
+  const urlEl = document.createElement('span');
+  urlEl.className = 'tab-url';
+  urlEl.textContent = tab.url || '';
+  item.append(icon, label, urlEl, tabCheckbox);
   if (tab.pinned) {
     item.classList.add('pinned');
     item.setAttribute('draggable', 'false');
@@ -299,8 +365,131 @@ function createTabItem(win, tab) {
   item.addEventListener('dragover', handleTabDragOver);
   item.addEventListener('dragleave', handleTabDragLeave);
   item.addEventListener('drop', handleTabDrop);
+  item.addEventListener('click', async event => {
+    if (event.target?.tagName?.toLowerCase() === 'input') {
+      return;
+    }
+    try {
+      await sendMessage({ type: 'focus-tab', tabId: tab.id });
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+  item.addEventListener('mouseenter', event => {
+    scheduleTabTooltip(event, tab);
+  });
+  item.addEventListener('mousemove', event => {
+    updateTabTooltipPosition(event);
+  });
+  item.addEventListener('mouseleave', () => {
+    hideTabTooltip();
+  });
+  tabCheckbox.addEventListener('change', () => {
+    const section = item.closest('.group-section');
+    if (section) {
+      updateGroupCheckboxState(section);
+    }
+    const card = item.closest('.card');
+    if (card) {
+      updateWindowCheckboxState(card);
+    }
+  });
 
   return item;
+}
+
+const tabTooltip = document.createElement('div');
+tabTooltip.className = 'tab-tooltip';
+const tabTooltipTitle = document.createElement('div');
+tabTooltipTitle.className = 'tab-tooltip-title';
+const tabTooltipUrl = document.createElement('div');
+tabTooltipUrl.className = 'tab-tooltip-url';
+tabTooltip.append(tabTooltipTitle, tabTooltipUrl);
+document.body.appendChild(tabTooltip);
+
+let tooltipTimer = null;
+let tooltipVisible = false;
+let tooltipAnchor = null;
+
+function scheduleTabTooltip(event, tab) {
+  tooltipAnchor = { title: tab.title || 'Untitled', url: tab.url || '' };
+  if (tooltipTimer) {
+    clearTimeout(tooltipTimer);
+  }
+  tooltipTimer = setTimeout(() => {
+    if (!tooltipAnchor) {
+      return;
+    }
+    tabTooltipTitle.textContent = tooltipAnchor.title;
+    tabTooltipUrl.textContent = tooltipAnchor.url;
+    tabTooltip.style.display = 'block';
+    tooltipVisible = true;
+    updateTabTooltipPosition(event);
+  }, 1000);
+}
+
+function updateTabTooltipPosition(event) {
+  if (!tooltipVisible) {
+    return;
+  }
+  const offset = 12;
+  const x = event.clientX + offset;
+  const y = event.clientY + offset;
+  tabTooltip.style.left = `${x}px`;
+  tabTooltip.style.top = `${y}px`;
+}
+
+function hideTabTooltip() {
+  if (tooltipTimer) {
+    clearTimeout(tooltipTimer);
+    tooltipTimer = null;
+  }
+  tooltipAnchor = null;
+  if (tooltipVisible) {
+    tabTooltip.style.display = 'none';
+    tooltipVisible = false;
+  }
+}
+
+function createSelectCheckbox(kind, { windowId, groupId, tabId }) {
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.className = kind === 'tab' ? 'tab-select' : 'select-checkbox';
+  checkbox.dataset.selectKind = kind;
+  checkbox.dataset.windowId = windowId;
+  if (typeof groupId === 'number' && groupId >= 0) {
+    checkbox.dataset.groupId = groupId;
+  }
+  if (typeof tabId === 'number') {
+    checkbox.dataset.tabId = tabId;
+  }
+  checkbox.addEventListener('click', event => event.stopPropagation());
+  checkbox.addEventListener('mousedown', event => event.stopPropagation());
+  return checkbox;
+}
+
+function updateWindowCheckboxState(card) {
+  const windowCheckbox = card.querySelector("input[data-select-kind='window']");
+  const tabCheckboxes = card.querySelectorAll("input[data-select-kind='tab']");
+  const total = tabCheckboxes.length;
+  const checked = Array.from(tabCheckboxes).filter(input => input.checked).length;
+  if (!windowCheckbox) {
+    return;
+  }
+  windowCheckbox.checked = total > 0 && checked === total;
+  windowCheckbox.indeterminate = checked > 0 && checked < total;
+}
+
+function updateGroupCheckboxState(section) {
+  const groupCheckbox = section.querySelector("input[data-select-kind='group']");
+  const tabCheckboxes = section.querySelectorAll("input[data-select-kind='tab']");
+  const total = tabCheckboxes.length;
+  const checked = Array.from(tabCheckboxes).filter(input => input.checked).length;
+  if (!groupCheckbox) {
+    return;
+  }
+  groupCheckbox.checked = total > 0 && checked === total;
+  groupCheckbox.indeterminate = checked > 0 && checked < total;
 }
 
 function getFaviconUrl(tab) {
@@ -667,65 +856,6 @@ async function handleTabbedRowDrop(event) {
   }
 }
 
-function createSessionCard(session) {
-  const frag = sessionTemplate.content.cloneNode(true);
-  const card = frag.querySelector('.card');
-  card.dataset.sessionId = session.id;
-  const sessionTitle = card.querySelector('.title');
-  sessionTitle.textContent = session.title;
-  card.querySelector('.saved-meta').textContent = `${session.tabs.length} tab(s) • saved ${formatDate(session.savedAt)}`;
-
-  const actions = card.querySelector('.card-actions');
-  actions.replaceChildren();
-
-  const openBtn = document.createElement('button');
-  openBtn.textContent = 'Open';
-  openBtn.addEventListener('click', async () => {
-    openBtn.disabled = true;
-    try {
-      await sendMessage({ type: 'launch-session', sessionId: session.id, options: { focused: true } });
-      toast('Session opened');
-    } catch (err) {
-      toast(err.message);
-    } finally {
-      openBtn.disabled = false;
-    }
-  });
-
-  const renameBtn = document.createElement('button');
-  renameBtn.textContent = 'Rename';
-  renameBtn.addEventListener('click', () => activateInlineRename(sessionTitle, sessionTitle.textContent, async value => {
-    await sendMessage({ type: 'rename-session', sessionId: session.id, title: value });
-    await loadSessions();
-  }));
-
-  const deleteBtn = document.createElement('button');
-  deleteBtn.textContent = 'Delete';
-  deleteBtn.classList.add('danger');
-  deleteBtn.addEventListener('click', async () => {
-    deleteBtn.disabled = true;
-    try {
-      await sendMessage({ type: 'remove-session', sessionId: session.id });
-      await loadSessions();
-    } catch (err) {
-      toast(err.message);
-    } finally {
-      deleteBtn.disabled = false;
-    }
-  });
-
-  actions.append(openBtn, renameBtn, deleteBtn);
-  return frag;
-}
-
-function formatDate(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'just now';
-  }
-  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-}
-
 function toast(message) {
   if (!message) return;
   chrome.runtime.sendMessage({ type: 'toast', message }).catch(() => console.warn(message));
@@ -780,9 +910,28 @@ function hexToRgba(hex, alpha) {
 
 async function loadAll() {
   try {
-    await Promise.all([loadActiveWindows(), loadSessions()]);
+    await loadActiveWindows();
   } catch (err) {
     toast(err.message);
+  }
+}
+
+async function collectAllTabIds() {
+  if (!activeWindowsCache.length) {
+    activeWindowsCache = await sendMessage({ type: 'get-active' });
+  }
+  return activeWindowsCache.flatMap(win => (win.tabs || []).map(tab => tab.id)).filter(Boolean);
+}
+
+async function saveMarkdownForTabIds(tabIds) {
+  const results = await sendMessage({ type: 'save-markdown', tabIds });
+  const successes = results.filter(result => result.success).length;
+  const failures = results.filter(result => !result.success);
+  if (failures.length) {
+    const detail = failures[0]?.error || 'Some tabs failed to save';
+    toast(`Saved ${successes}/${results.length}. ${detail}`);
+  } else {
+    toast(`Saved ${successes} markdown file(s).`);
   }
 }
 

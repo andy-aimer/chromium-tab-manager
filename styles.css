@@ -31,6 +31,27 @@ header {
   border-bottom: 1px solid var(--border);
 }
 
+header > div:first-child {
+  flex: 1;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  flex: 1;
+}
+
+.header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.header-center button {
+  padding: .6rem 1.5rem;
+  font-weight: 600;
+}
+
 .subtitle {
   margin: .25rem 0 0;
   color: var(--muted);
@@ -97,7 +118,7 @@ button.danger {
 .card {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 0.3rem;
+  padding: 0.6rem;
   margin-bottom: 1rem;
   background: #f1f5f9;
   break-inside: avoid;
@@ -114,11 +135,21 @@ button.danger {
   flex: 1;
   text-align: left;
   min-width: 0;
+  order: 1;
 }
 
 .card-actions {
   display: flex;
   gap: .5rem;
+  order: 2;
+}
+
+.select-checkbox {
+  margin-left: auto;
+  order: 3;
+}
+
+.tab-select {
   margin-left: auto;
 }
 
@@ -200,6 +231,7 @@ menu {
   display: flex;
   flex-direction: column;
   gap: 0;
+  margin: 0;
 }
 
 .group-section {
@@ -212,10 +244,12 @@ menu {
 
 .group-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: .75rem;
   margin-bottom: 0;
+  background: var(--group-color, var(--accent));
+  font-weight: bold;
 }
 
 .group-header.muted {
@@ -223,13 +257,13 @@ menu {
 }
 
 .group-chip {
-  padding: .3rem .6rem .5rem;
-  border-radius: 6px;
+  padding: .2rem .6rem .3rem;
+  border-radius: 0;
   background: var(--group-color, var(--accent));
   color: #fff;
   font-size: .8rem;
   cursor: pointer;
-  margin-left: -3px;
+  margin-left: 0;
 }
 
 .tab-list-inner {
@@ -239,6 +273,7 @@ menu {
   display: flex;
   flex-direction: column;
   border-left: 2px solid var(--group-color, transparent);
+  border-right: 2px solid var(--group-color, transparent);
   padding-left: 0;
 }
 
@@ -314,12 +349,54 @@ menu {
   object-fit: contain;
   vertical-align: middle;
 }
+
 .tab-item span {
   vertical-align: middle;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+}
+
+.tab-url {
+  color: var(--muted);
+  font-size: .75rem;
+  margin-left: auto;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-tooltip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .45rem .6rem;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.15);
+  color: var(--text);
+  font-size: .75rem;
+  max-width: 70vw;
+  width: auto;
+  height: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  z-index: 10;
+  display: none;
+  pointer-events: none;
+}
+
+.tab-tooltip-title {
+  font-weight: bold;
+  margin-bottom: .2rem;
+}
+
+.tab-tooltip-url {
+  color: var(--muted);
+  font-size: .7rem;
 }
 
 .compact-header {
@@ -340,13 +417,13 @@ menu {
 }
 
 .toggle-tabs {
-  border: 1px solid var(--border);
-  background: #fff;
-  border-radius: 50%;
-  width: 1.75rem;
-  height: 1.75rem;
-  margin-right: .75rem;
-  cursor: pointer;
+  font-weight: 900;
+  order: 4;
+  width: .84rem;
+  height: .84rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .toggle-tabs.collapsed {
   transform: rotate(-90deg);

@@ -1,4 +1,3 @@
-const STORAGE_KEY = 'tab-manager:sessions';
 const WINDOW_TITLES_KEY = 'tab-manager:window-titles';
 const MANAGER_URL = chrome.runtime.getURL('manager.html');
 let storagePromise = Promise.resolve();
@@ -115,104 +114,6 @@ function buildWindowTitle(win) {
   }
 }
 
-async function loadSessions() {
-  const { [STORAGE_KEY]: sessions = [] } = await chrome.storage.local.get(STORAGE_KEY);
-  return sessions;
-}
-
-async function persistSessions(sessions) {
-  await chrome.storage.local.set({ [STORAGE_KEY]: sessions });
-}
-
-async function saveWindow(winId, title) {
-  return queueStorageOperation(async () => {
-    const windows = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
-    if (!winId) {
-      const titles = await loadWindowTitles();
-      const sessions = await loadSessions();
-      windows.forEach(win => {
-        const entry = {
-          id: crypto.randomUUID(),
-          title: titles[win.id] || `Session • ${buildWindowTitle(win)}`,
-          savedAt: new Date().toISOString(),
-          tabs: (win.tabs || []).map(tab => ({
-            url: tab.url || tab.pendingUrl,
-            title: tab.title || 'Untitled',
-            pinned: tab.pinned,
-          })),
-        };
-        sessions.push(entry);
-      });
-      await persistSessions(sessions);
-      return sessions;
-    }
-    const titles = await loadWindowTitles();
-    const win = windows.find(w => w.id === winId);
-    if (!win) {
-      throw new Error('Window not found');
-    }
-    const sessions = await loadSessions();
-    const entry = {
-      id: crypto.randomUUID(),
-      title: title || titles[winId] || buildWindowTitle(win),
-      savedAt: new Date().toISOString(),
-      tabs: (win.tabs || []).map(tab => ({
-        url: tab.url || tab.pendingUrl,
-        title: tab.title || 'Untitled',
-        pinned: tab.pinned,
-      })),
-    };
-    sessions.push(entry);
-    await persistSessions(sessions);
-    return entry;
-  });
-}
-
-async function removeSession(sessionId) {
-  return queueStorageOperation(async () => {
-    const sessions = await loadSessions();
-    const next = sessions.filter(session => session.id !== sessionId);
-    await persistSessions(next);
-    return next;
-  });
-}
-
-async function renameSession(sessionId, title) {
-  return queueStorageOperation(async () => {
-    const sessions = await loadSessions();
-    const session = sessions.find(entry => entry.id === sessionId);
-    if (!session) {
-      throw new Error('Session not found');
-    }
-    session.title = title;
-    session.savedAt = new Date().toISOString();
-    await persistSessions(sessions);
-    return session;
-  });
-}
-
-async function launchSession(sessionId, { reuse, focused }) {
-  const sessions = await loadSessions();
-  const session = sessions.find(entry => entry.id === sessionId);
-  if (!session) {
-    throw new Error('Session not found');
-  }
-  const urls = session.tabs.map(tab => tab.url).filter(Boolean);
-  if (!urls.length) {
-    return null;
-  }
-  if (reuse && reuse.windowId) {
-    for (const url of urls) {
-      chrome.tabs.create({ windowId: reuse.windowId, url, active: false });
-    }
-    if (focused) {
-      chrome.windows.update(reuse.windowId, { focused: true });
-    }
-  } else {
-    await chrome.windows.create({ url: urls, focused: focused !== false });
-  }
-  return session;
-}
 
 async function assignToGroup(message) {
   const tabIds = Array.isArray(message.tabIds) ? message.tabIds : [message.tabId];
@@ -235,6 +136,215 @@ async function assignToGroup(message) {
   return { groupId: message.groupId };
 }
 
+function sanitizeFilename(value) {
+  const cleaned = value.replace(/[\u0000-\u001f<>:"/\\|?*]+/g, ' ').trim();
+  return cleaned || 'untitled';
+}
+
+async function extractMarkdownFromTab(tabId) {
+  const results = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      const normalizeText = (text) => text.replace(/\s+/g, ' ').trim();
+
+      const pickMainNode = () => {
+        const selectors = [
+          'article',
+          'main',
+          '[role="main"]',
+          '#content',
+          '.content',
+          '.article',
+          '.post',
+          '.entry',
+          '.markdown-body',
+        ];
+        let best = null;
+        let bestScore = 0;
+        selectors.forEach(selector => {
+          document.querySelectorAll(selector).forEach(node => {
+            const score = (node.innerText || '').length;
+            if (score > bestScore) {
+              best = node;
+              bestScore = score;
+            }
+          });
+        });
+        return best || document.body;
+      };
+
+      const cloneAndClean = (node) => {
+        const clone = node.cloneNode(true);
+        const removeTags = [
+          'script',
+          'style',
+          'noscript',
+          'iframe',
+          'canvas',
+          'svg',
+          'nav',
+          'aside',
+          'header',
+          'footer',
+          'form',
+          'button',
+          'input',
+          'textarea',
+          'select',
+        ];
+        clone.querySelectorAll(removeTags.join(',')).forEach(el => el.remove());
+        return clone;
+      };
+
+      const renderInline = (node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return normalizeText(node.textContent || '');
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+          return '';
+        }
+        const tag = node.tagName.toLowerCase();
+        if (tag === 'br') {
+          return '\n';
+        }
+        if (tag === 'strong' || tag === 'b') {
+          return `**${renderInlineChildren(node)}**`;
+        }
+        if (tag === 'em' || tag === 'i') {
+          return `*${renderInlineChildren(node)}*`;
+        }
+        if (tag === 'code') {
+          return `\`${(node.textContent || '').trim()}\``;
+        }
+        if (tag === 'a') {
+          const href = node.getAttribute('href') || '';
+          const label = renderInlineChildren(node) || href;
+          return href ? `[${label}](${href})` : label;
+        }
+        if (tag === 'img') {
+          const alt = node.getAttribute('alt') || '';
+          const src = node.getAttribute('src') || '';
+          return src ? `![${alt}](${src})` : '';
+        }
+        return renderInlineChildren(node);
+      };
+
+      const renderInlineChildren = (node) => {
+        const parts = [];
+        node.childNodes.forEach(child => {
+          const chunk = renderInline(child);
+          if (chunk) {
+            parts.push(chunk);
+          }
+        });
+        return parts.join(' ').replace(/\s+\n/g, '\n').replace(/\n\s+/g, '\n').trim();
+      };
+
+      const renderBlock = (node, depth = 0) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return normalizeText(node.textContent || '');
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+          return '';
+        }
+        const tag = node.tagName.toLowerCase();
+        if (tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6') {
+          const level = Number(tag[1]);
+          const title = renderInlineChildren(node);
+          return title ? `${'#'.repeat(level)} ${title}\n\n` : '';
+        }
+        if (tag === 'p') {
+          const text = renderInlineChildren(node);
+          return text ? `${text}\n\n` : '';
+        }
+        if (tag === 'pre') {
+          const text = node.textContent || '';
+          return `\`\`\`\n${text.replace(/\n{3,}/g, '\n\n')}\n\`\`\`\n\n`;
+        }
+        if (tag === 'blockquote') {
+          const text = renderInlineChildren(node);
+          if (!text) {
+            return '';
+          }
+          return `${text.split('\n').map(line => `> ${line}`).join('\n')}\n\n`;
+        }
+        if (tag === 'ul' || tag === 'ol') {
+          const items = [];
+          const ordered = tag === 'ol';
+          let index = 1;
+          node.childNodes.forEach(child => {
+            if (child.nodeType === Node.ELEMENT_NODE && child.tagName.toLowerCase() === 'li') {
+              const content = renderBlock(child, depth + 1).trim();
+              if (content) {
+                const prefix = ordered ? `${index}. ` : '- ';
+                items.push(`${'  '.repeat(depth)}${prefix}${content}`);
+                index += 1;
+              }
+            }
+          });
+          return items.length ? `${items.join('\n')}\n\n` : '';
+        }
+        if (tag === 'li') {
+          const content = renderInlineChildren(node);
+          return content || '';
+        }
+        if (tag === 'hr') {
+          return '---\n\n';
+        }
+
+        const parts = [];
+        node.childNodes.forEach(child => {
+          const chunk = renderBlock(child, depth);
+          if (chunk) {
+            parts.push(chunk);
+          }
+        });
+        return parts.join('');
+      };
+
+      try {
+        const mainNode = pickMainNode();
+        const cleaned = cloneAndClean(mainNode);
+        let markdown = renderBlock(cleaned).replace(/\n{3,}/g, '\n\n').trim();
+        const title = document.title || 'Untitled';
+        if (markdown) {
+          markdown = `# ${title}\n\n${markdown}`;
+        } else {
+          markdown = `# ${title}\n\n${normalizeText(document.body?.innerText || '')}`;
+        }
+        return { title, markdown };
+      } catch (err) {
+        return { error: err.message || String(err) };
+      }
+    },
+  });
+  const result = results?.[0]?.result;
+  if (!result || result.error) {
+    throw new Error(result?.error || 'Failed to extract content');
+  }
+  return result;
+}
+
+async function saveMarkdownForTabs(tabIds) {
+  const results = [];
+  for (const tabId of tabIds) {
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      if (!tab?.url || !tab.url.startsWith('http')) {
+        throw new Error('Tab URL is not supported');
+      }
+      const { title, markdown } = await extractMarkdownFromTab(tabId);
+      const filename = `${sanitizeFilename(title || tab.title || 'untitled')}.md`;
+      const dataUrl = `data:text/markdown;charset=utf-8,${encodeURIComponent(markdown)}`;
+      await chrome.downloads.download({ url: dataUrl, filename, saveAs: false });
+      results.push({ tabId, title, success: true });
+    } catch (err) {
+      results.push({ tabId, title: '', success: false, error: err.message || String(err) });
+    }
+  }
+  return results;
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) {
     console.warn(`Ignoring message from unknown sender: ${sender.id}`);
@@ -252,21 +362,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'get-active':
         respond(await getActiveWindows());
         break;
-      case 'get-sessions':
-        respond(await loadSessions());
-        break;
-      case 'save-window':
-        respond(await saveWindow(message.windowId, message.title));
-        break;
-      case 'remove-session':
-        respond(await removeSession(message.sessionId));
-        break;
-      case 'rename-session':
-        respond(await renameSession(message.sessionId, message.title));
-        break;
-      case 'launch-session':
-        respond(await launchSession(message.sessionId, message.options || {}));
-        break;
       case 'rename-window':
         respond(await saveWindowTitle(message.windowId, message.title));
         break;
@@ -283,6 +378,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         break;
       case 'assign-group':
         respond(await assignToGroup(message));
+        break;
+      case 'focus-tab': {
+        const tab = await chrome.tabs.get(message.tabId);
+        await chrome.tabs.update(message.tabId, { active: true });
+        if (tab?.windowId) {
+          await chrome.windows.update(tab.windowId, { focused: true });
+        }
+        respond(true);
+        break;
+      }
+      case 'save-markdown':
+        respond(await saveMarkdownForTabs(message.tabIds || []));
         break;
       case 'move-group':
         respond(await chrome.tabGroups.move(message.groupId, { index: message.index, windowId: message.windowId }));

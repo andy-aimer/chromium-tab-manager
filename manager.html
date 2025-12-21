@@ -12,9 +12,12 @@
         <h1>Tab Manager</h1>
         <p class="subtitle">Fast, local window & tab snapshots</p>
       </div>
+      <div class="header-center">
+        <button id="save-markdown-btn" class="primary">Save Markdown</button>
+      </div>
       <div class="actions">
         <button id="refresh-btn">Refresh</button>
-        <button id="save-all-btn" class="primary">Save All Windows</button>
+        <button id="save-all-btn" class="primary">Save All Markdown</button>
         <label class="column-picker">Columns
           <select id="column-count">
             <option value="1">1</option>
@@ -38,13 +41,6 @@
         <div id="active-list" class="list card-columns"></div>
       </section>
 
-      <section>
-        <div class="section-header">
-          <h2>Saved Sessions</h2>
-          <span id="saved-count" class="meta"></span>
-        </div>
-        <div id="saved-list" class="list"></div>
-      </section>
     </main>
 
     <template id="window-template">
@@ -58,19 +54,6 @@
           <div class="card-actions"></div>
         </div>
         <div class="tab-list"></div>
-      </article>
-    </template>
-
-    <template id="session-template">
-      <article class="card session-card">
-        <div class="card-header">
-          <button class="toggle-tabs" aria-label="Toggle tabs">▾</button>
-          <div class="card-title">
-            <h3 class="title"></h3>
-            <p class="meta text-sm saved-meta"></p>
-          </div>
-          <div class="card-actions"></div>
-        </div>
       </article>
     </template>
 
