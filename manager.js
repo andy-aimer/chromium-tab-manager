@@ -160,23 +160,29 @@ function createWindowCard(win) {
   const container = card.querySelector('.tab-list');
   container.classList.add('tab-collection');
   container.replaceChildren();
-  const toggleBtn = card.querySelector('.toggle-tabs');
-  toggleBtn.type = 'button';
-  toggleBtn.addEventListener('click', event => {
-    event.preventDefault();
-    event.stopPropagation();
-    const targetContainer = card.querySelector('.tab-list');
-    if (!targetContainer) return;
-    const collapsed = targetContainer.hasAttribute('hidden');
-    if (collapsed) {
-      targetContainer.removeAttribute('hidden');
-      toggleBtn.classList.remove('collapsed');
-      toggleBtn.textContent = '▾';
-    } else {
-      targetContainer.setAttribute('hidden', '');
-      toggleBtn.classList.add('collapsed');
-      toggleBtn.textContent = '▸';
-    }
+  const toggleButtons = card.querySelectorAll('.toggle-tabs');
+  toggleButtons.forEach(toggleBtn => {
+    toggleBtn.type = 'button';
+    toggleBtn.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const targetContainer = card.querySelector('.tab-list');
+      if (!targetContainer) return;
+      const collapsed = targetContainer.hasAttribute('hidden');
+      if (collapsed) {
+        targetContainer.removeAttribute('hidden');
+        toggleButtons.forEach(btn => {
+          btn.classList.remove('collapsed');
+          btn.textContent = '▾';
+        });
+      } else {
+        targetContainer.setAttribute('hidden', '');
+        toggleButtons.forEach(btn => {
+          btn.classList.add('collapsed');
+          btn.textContent = '▸';
+        });
+      }
+    });
   });
 
   buildWindowSections(win).forEach(section => {
@@ -233,6 +239,7 @@ function renderGroupSection(win, group, tabs) {
   section.className = 'group-section grouped';
   section.dataset.groupId = group.id;
   section.dataset.windowId = win.id;
+  section.style.setProperty('--group-color', colorToHex(group.color));
 
   const header = document.createElement('div');
   header.className = 'group-header';
@@ -248,6 +255,11 @@ function renderGroupSection(win, group, tabs) {
   toggleBtn.type = 'button';
   toggleBtn.setAttribute('aria-label', 'Toggle group tabs');
   toggleBtn.textContent = group.collapsed ? '▸' : '▾';
+  const toggleBtnRight = document.createElement('button');
+  toggleBtnRight.className = 'toggle-tabs toggle-tabs-right';
+  toggleBtnRight.type = 'button';
+  toggleBtnRight.setAttribute('aria-label', 'Toggle group tabs');
+  toggleBtnRight.textContent = group.collapsed ? '▸' : '▾';
 
   const chip = document.createElement('span');
   chip.className = 'group-chip';
@@ -262,9 +274,10 @@ function renderGroupSection(win, group, tabs) {
   chip.addEventListener('dragend', handleGroupChipDragEnd);
 
   const groupCheckbox = createSelectCheckbox('group', { windowId: win.id, groupId: group.id });
+  header.append(toggleBtn);
   header.append(chip);
   header.append(groupCheckbox);
-  header.append(toggleBtn);
+  header.append(toggleBtnRight);
   groupCheckbox.addEventListener('change', () => {
     section.querySelectorAll("input[data-select-kind='tab']").forEach(input => {
       input.checked = groupCheckbox.checked;
@@ -280,17 +293,26 @@ function renderGroupSection(win, group, tabs) {
   if (group.collapsed) {
     list.setAttribute('hidden', '');
   }
-  toggleBtn.addEventListener('click', event => {
-    event.preventDefault();
-    event.stopPropagation();
-    const collapsed = list.hasAttribute('hidden');
-    if (collapsed) {
-      list.removeAttribute('hidden');
-      toggleBtn.textContent = '▾';
-    } else {
-      list.setAttribute('hidden', '');
-      toggleBtn.textContent = '▸';
-    }
+  const toggleButtons = [toggleBtn, toggleBtnRight];
+  toggleButtons.forEach(button => {
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const collapsed = list.hasAttribute('hidden');
+      if (collapsed) {
+        list.removeAttribute('hidden');
+        toggleButtons.forEach(btn => {
+          btn.classList.remove('collapsed');
+          btn.textContent = '▾';
+        });
+      } else {
+        list.setAttribute('hidden', '');
+        toggleButtons.forEach(btn => {
+          btn.classList.add('collapsed');
+          btn.textContent = '▸';
+        });
+      }
+    });
   });
   const startIndex = tabs.length ? Math.min(...tabs.map(t => t.index)) : 0;
   const endIndex = tabs.length ? Math.max(...tabs.map(t => t.index)) : startIndex;
@@ -347,6 +369,7 @@ function createTabItem(win, tab) {
   }
   icon.onerror = () => (icon.style.visibility = 'hidden');
   const label = document.createElement('span');
+  label.className = 'tab-title';
   label.textContent = tab.title;
   const tabCheckbox = createSelectCheckbox('tab', { windowId: win.id, groupId: tab.groupId, tabId: tab.id });
   const urlEl = document.createElement('span');
@@ -425,7 +448,7 @@ function scheduleTabTooltip(event, tab) {
     tabTooltip.style.display = 'block';
     tooltipVisible = true;
     updateTabTooltipPosition(event);
-  }, 1000);
+  }, 600);
 }
 
 function updateTabTooltipPosition(event) {

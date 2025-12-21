@@ -23,15 +23,17 @@ body {
   min-height: 100vh;
 }
 
-header {
+.section-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem clamp(1rem, 4vw, 3rem);
+  gap: 1rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
 }
 
-header > div:first-child {
+.section-toolbar > div:first-child {
   flex: 1;
 }
 
@@ -147,10 +149,17 @@ button.danger {
 .select-checkbox {
   margin-left: auto;
   order: 3;
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
 }
 
 .tab-select {
   margin-left: auto;
+  order: 3;
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
 }
 
 .tab-list {
@@ -158,9 +167,12 @@ button.danger {
 }
 
 .tab-item {
-  padding: .15rem .4rem;
-  margin: -1px 0 0 0;
-  border: 1px solid #cbd5f5;
+  padding-top: .05rem;
+  padding-right: .2rem;
+  padding-bottom: .05rem;
+  padding-left: .2rem;
+  margin: 0;
+  border: 0;
   border-radius: 2px;
   font-size: .85rem;
   transition: background .15s ease, border .15s ease;
@@ -232,10 +244,12 @@ menu {
   flex-direction: column;
   gap: 0;
   margin: 0;
+  border: 1px solid #676767;
 }
 
 .group-section {
-  border: 1px solid var(--border);
+  border: 3px solid var(--group-color, var(--border));
+  border-right-width: 3px;
   border-radius: 0;
   padding: 0;
   background: var(--group-bg, #fdfcfe);
@@ -264,6 +278,7 @@ menu {
   font-size: .8rem;
   cursor: pointer;
   margin-left: 0;
+  order: 2;
 }
 
 .tab-list-inner {
@@ -272,13 +287,25 @@ menu {
   margin: 0;
   display: flex;
   flex-direction: column;
-  border-left: 2px solid var(--group-color, transparent);
-  border-right: 2px solid var(--group-color, transparent);
-  padding-left: 0;
+  border: 0;
+  border-bottom: 1px solid #676767;
+  padding-left: .72rem;
+}
+
+.tab-list-inner.single {
+  border-left: 2px solid var(--border);
+  border-right: 2px solid var(--border);
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 1px;
+  padding-right: 1px;
 }
 
 .tab-list-inner .tab-item {
-  padding: .2rem .5rem;
+  padding-top: .05rem;
+  padding-right: .2rem;
+  padding-bottom: .05rem;
+  padding-left: .2rem;
   cursor: grab;
   position: relative;
 }
@@ -305,13 +332,18 @@ menu {
 .tab-item.pinned {
   opacity: .7;
   cursor: not-allowed;
-  padding-left: 1.5rem;
+  padding-left: .78rem;
 }
 
 .tab-item.pinned::before {
   content: '📌';
   position: absolute;
   left: 0;
+  width: .78rem;
+  height: .78rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .card .title.clickable {
@@ -340,6 +372,7 @@ menu {
   border-radius: 2px;
   background: #fffbea;
   width: auto;
+  order: 1;
 }
 
 .tab-icon {
@@ -358,6 +391,14 @@ menu {
   flex: 1;
 }
 
+.tab-title {
+  order: 1;
+}
+
+.title {
+  order: 1;
+}
+
 .tab-url {
   color: var(--muted);
   font-size: .75rem;
@@ -366,6 +407,7 @@ menu {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  order: 2;
 }
 
 .tab-tooltip {
@@ -417,13 +459,25 @@ menu {
 }
 
 .toggle-tabs {
-  font-weight: 900;
-  order: 4;
-  width: .84rem;
-  height: .84rem;
+  width: .78rem;
+  height: .78rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 2px;
+  font-weight: 700;
+  line-height: 1;
+  order: 0;
+  align-self: flex-start;
+}
+
+.toggle-tabs-right {
+  margin-left: .35rem;
+  order: 4;
 }
 .toggle-tabs.collapsed {
   transform: rotate(-90deg);

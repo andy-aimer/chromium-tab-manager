@@ -7,33 +7,32 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header>
-      <div>
-        <h1>Tab Manager</h1>
-        <p class="subtitle">Fast, local window & tab snapshots</p>
-      </div>
-      <div class="header-center">
-        <button id="save-markdown-btn" class="primary">Save Markdown</button>
-      </div>
-      <div class="actions">
-        <button id="refresh-btn">Refresh</button>
-        <button id="save-all-btn" class="primary">Save All Markdown</button>
-        <label class="column-picker">Columns
-          <select id="column-count">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-          </select>
-        </label>
-      </div>
-    </header>
-
     <main>
       <section>
+        <div class="section-toolbar">
+          <div>
+            <h1>Tab Manager</h1>
+            <p class="subtitle">Fast, local window & tab snapshots</p>
+          </div>
+          <div class="header-center">
+            <button id="save-markdown-btn" class="primary">Save Markdown</button>
+          </div>
+          <div class="actions">
+            <button id="refresh-btn">Refresh</button>
+            <button id="save-all-btn" class="primary">Save All Markdown</button>
+            <label class="column-picker">Columns
+              <select id="column-count">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+              </select>
+            </label>
+          </div>
+        </div>
         <div class="section-header">
           <h2>Active Windows</h2>
           <span id="active-count" class="meta"></span>
@@ -52,6 +51,7 @@
             <p class="meta text-sm"></p>
           </div>
           <div class="card-actions"></div>
+          <button class="toggle-tabs toggle-tabs-right" aria-label="Toggle tabs">▾</button>
         </div>
         <div class="tab-list"></div>
       </article>
