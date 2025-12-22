@@ -289,7 +289,7 @@ function renderGroupSection(win, group, tabs) {
   }));
   chip.draggable = true;
   chip.addEventListener('dragstart', handleGroupChipDragStart);
-  chip.addEventListener('dragend', handleGroupChipDragEnd);
+  
 
   const groupCount = document.createElement('span');
   groupCount.className = 'group-count';
@@ -405,7 +405,7 @@ function createTabItem(win, tab) {
   }
 
   item.addEventListener('dragstart', handleTabDragStart);
-  item.addEventListener('dragend', handleTabDragEnd);
+  
   item.addEventListener('drop', handleTabDrop);
   item.addEventListener('click', async event => {
     if (event.target?.tagName?.toLowerCase() === 'input') {
