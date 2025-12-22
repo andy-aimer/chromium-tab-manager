@@ -5,6 +5,7 @@ const windowTemplate = document.getElementById('window-template');
 const columnSelect = document.getElementById('column-count');
 const activeCountEl = document.getElementById('active-count');
 const saveMarkdownBtn = document.getElementById('save-markdown-btn');
+const traceHistoryToggle = document.getElementById('trace-history');
 
 let dragContext = null;
 let activeWindowsCache = [];
@@ -45,6 +46,9 @@ saveMarkdownBtn.addEventListener('click', async () => {
   } finally {
     saveMarkdownBtn.disabled = false;
   }
+});
+traceHistoryToggle?.addEventListener('change', () => {
+  applyTraceHistory();
 });
 
 document.addEventListener('dragover', event => {
@@ -125,6 +129,7 @@ async function loadActiveWindows() {
   activeListEl.innerHTML = '';
   activeCountEl.textContent = windows.length ? `${windows.length} window(s)` : 'No windows';
   windows.forEach(win => activeListEl.appendChild(createWindowCard(win)));
+  applyTraceHistory();
 }
 
 function createWindowCard(win) {
@@ -378,6 +383,7 @@ function createTabItem(win, tab) {
   item.dataset.windowId = win.id;
   item.dataset.tabId = tab.id;
   item.dataset.index = tab.index;
+  item.dataset.lastAccessed = typeof tab.lastAccessed === 'number' ? String(tab.lastAccessed) : '0';
   if (tab.groupId > -1) {
     item.dataset.groupId = tab.groupId;
   }
@@ -391,11 +397,19 @@ function createTabItem(win, tab) {
   icon.onerror = () => (icon.style.visibility = 'hidden');
   const label = document.createElement('span');
   label.className = 'tab-title';
-  label.textContent = tab.title;
+  const titleButton = document.createElement('button');
+  titleButton.type = 'button';
+  titleButton.className = 'tab-link-text';
+  titleButton.textContent = tab.title;
+  label.appendChild(titleButton);
   const tabCheckbox = createSelectCheckbox('tab', { windowId: win.id, groupId: tab.groupId, tabId: tab.id });
   const urlEl = document.createElement('span');
   urlEl.className = 'tab-url';
-  urlEl.textContent = tab.url || '';
+  const urlButton = document.createElement('button');
+  urlButton.type = 'button';
+  urlButton.className = 'tab-link-text';
+  urlButton.textContent = tab.url || '';
+  urlEl.appendChild(urlButton);
   item.append(icon, label, urlEl, tabCheckbox);
   if (tab.pinned) {
     item.classList.add('pinned');
@@ -407,16 +421,16 @@ function createTabItem(win, tab) {
   item.addEventListener('dragstart', handleTabDragStart);
   
   item.addEventListener('drop', handleTabDrop);
-  item.addEventListener('click', async event => {
-    if (event.target?.tagName?.toLowerCase() === 'input') {
-      return;
-    }
+  const focusTab = async event => {
+    event.stopPropagation();
     try {
       await sendMessage({ type: 'focus-tab', tabId: tab.id });
     } catch (err) {
       toast(err.message);
     }
-  });
+  };
+  titleButton.addEventListener('click', focusTab);
+  urlButton.addEventListener('click', focusTab);
   item.addEventListener('mouseenter', event => {
     scheduleTabTooltip(event, tab);
   });
@@ -438,6 +452,45 @@ function createTabItem(win, tab) {
   });
 
   return item;
+}
+
+function applyTraceHistory() {
+  const items = Array.from(document.querySelectorAll('.tab-item')).filter(item => !item.classList.contains('muted'));
+  if (!traceHistoryToggle?.checked) {
+    items.forEach(item => {
+      item.style.backgroundColor = '';
+    });
+    return;
+  }
+  const ranked = items
+    .map(item => ({
+      item,
+      lastAccessed: Number(item.dataset.lastAccessed) || 0,
+    }))
+    .sort((a, b) => b.lastAccessed - a.lastAccessed);
+  const total = ranked.length;
+  ranked.forEach((entry, index) => {
+    const ratio = total > 1 ? index / (total - 1) : 0;
+    entry.item.style.backgroundColor = interpolateHistoryColor(ratio);
+  });
+}
+
+function interpolateHistoryColor(ratio) {
+  const start = [255, 255, 255];
+  const end = [118, 118, 118];
+  return rgbToString(lerpRgb(start, end, ratio));
+}
+
+function lerpRgb(from, to, t) {
+  return [
+    Math.round(from[0] + (to[0] - from[0]) * t),
+    Math.round(from[1] + (to[1] - from[1]) * t),
+    Math.round(from[2] + (to[2] - from[2]) * t),
+  ];
+}
+
+function rgbToString(rgb) {
+  return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
 }
 
 const tabTooltip = document.createElement('div');

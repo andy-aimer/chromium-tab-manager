@@ -93,6 +93,7 @@ function serializeTab(tab, index) {
     audible: tab.audible,
     muted: tab.mutedInfo ? tab.mutedInfo.muted : false,
     favicon: tab.favIconUrl || '',
+    lastAccessed: typeof tab.lastAccessed === 'number' ? tab.lastAccessed : 0,
     groupId: typeof tab.groupId === 'number' ? tab.groupId : -1,
     index,
   };
