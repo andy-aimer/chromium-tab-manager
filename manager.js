@@ -47,6 +47,28 @@ saveMarkdownBtn.addEventListener('click', async () => {
   }
 });
 
+document.addEventListener('dragover', event => {
+  if (dragContext) {
+    event.preventDefault();
+    handleThrottledDragOver(event);
+  }
+});
+
+document.addEventListener('dragleave', event => {
+  if (dragContext && event.relatedTarget === null) {
+    clearDropIndicator();
+  }
+});
+
+document.addEventListener('dragend', () => {
+  dragContext = null;
+  clearDropIndicator();
+  const draggingElement = document.querySelector('.dragging');
+  if (draggingElement) {
+    draggingElement.classList.remove('dragging');
+  }
+});
+
 async function sendMessage(payload) {
   const response = await chrome.runtime.sendMessage(payload);
   if (!response?.ok) {
@@ -194,8 +216,6 @@ function createWindowCard(win) {
   });
 
   container.dataset.windowId = win.id;
-  container.addEventListener('dragover', handleGroupContainerDragOver);
-  container.addEventListener('dragleave', handleGroupContainerDragLeave);
   container.addEventListener('drop', handleGroupContainerDrop);
 
   return frag;
@@ -246,8 +266,6 @@ function renderGroupSection(win, group, tabs) {
   header.dataset.dropTarget = 'group';
   header.dataset.groupId = group.id;
   header.dataset.windowId = win.id;
-  header.style.setProperty('--group-color', colorToHex(group.color));
-  header.addEventListener('dragover', handleGroupDragOver);
   header.addEventListener('drop', handleGroupDrop);
 
   const toggleBtn = document.createElement('button');
@@ -322,8 +340,6 @@ function renderGroupSection(win, group, tabs) {
   const endIndex = tabs.length ? Math.max(...tabs.map(t => t.index)) : startIndex;
   section.dataset.groupStartIndex = String(startIndex);
   section.dataset.groupEndIndex = String(endIndex);
-  section.addEventListener('dragover', handleGroupSectionDragOver);
-  section.addEventListener('dragleave', handleGroupSectionDragLeave);
   section.addEventListener('drop', handleGroupSectionDrop);
   section.appendChild(list);
   return section;
@@ -351,8 +367,6 @@ function renderSingleTabRow(win, tab) {
   wrapper.className = 'tab-list-inner single';
   wrapper.dataset.windowId = win.id;
   wrapper.dataset.index = tab.index;
-  wrapper.addEventListener('dragover', handleTabbedRowDragOver);
-  wrapper.addEventListener('dragleave', handleTabbedRowDragLeave);
   wrapper.addEventListener('drop', handleTabbedRowDrop);
   wrapper.appendChild(createTabItem(win, tab));
   return wrapper;
@@ -364,6 +378,9 @@ function createTabItem(win, tab) {
   item.dataset.windowId = win.id;
   item.dataset.tabId = tab.id;
   item.dataset.index = tab.index;
+  if (tab.groupId > -1) {
+    item.dataset.groupId = tab.groupId;
+  }
   const icon = document.createElement('img');
   icon.className = 'tab-icon';
   const iconUrl = getFaviconUrl(tab);
@@ -389,8 +406,6 @@ function createTabItem(win, tab) {
 
   item.addEventListener('dragstart', handleTabDragStart);
   item.addEventListener('dragend', handleTabDragEnd);
-  item.addEventListener('dragover', handleTabDragOver);
-  item.addEventListener('dragleave', handleTabDragLeave);
   item.addEventListener('drop', handleTabDrop);
   item.addEventListener('click', async event => {
     if (event.target?.tagName?.toLowerCase() === 'input') {
@@ -539,17 +554,65 @@ function getFaviconUrl(tab) {
   }
 }
 
+function updateDropIndicator(target, before, isGroup) {
+  const rect = target.getBoundingClientRect();
+  dropIndicator.style.width = `${rect.width}px`;
+  dropIndicator.style.left = `${rect.left}px`;
+  dropIndicator.style.top = before ? `${rect.top}px` : `${rect.bottom}px`;
+  if (!dropIndicator.isConnected) {
+    document.body.appendChild(dropIndicator);
+  }
+}
+
+const handleThrottledDragOver = throttle(event => {
+  if (!dragContext) return;
+  const target = event.target.closest('.tab-item, .group-section, .tab-list-inner.single');
+  if (!target) {
+    clearDropIndicator();
+    return;
+  }
+  const isGroup = dragContext.kind === 'group';
+  const rect = target.getBoundingClientRect();
+  const before = event.clientY < rect.top + rect.height / 2;
+
+  if (isGroup) {
+    if (target.matches('.tab-item')) {
+      const parentGroup = target.closest('.group-section');
+      if (parentGroup && Number(parentGroup.dataset.groupId) === dragContext.groupId) {
+        clearDropIndicator();
+        return;
+      }
+      updateDropIndicator(target, before, true);
+    } else if (target.matches('.group-section')) {
+      if (Number(target.dataset.groupId) === dragContext.groupId) {
+        clearDropIndicator();
+        return;
+      }
+      updateDropIndicator(target, before, true);
+    } else if (target.matches('.tab-list-inner.single')) {
+      updateDropIndicator(target, before, true);
+    }
+  } else {
+    // Dragging a tab
+    if (target.matches('.tab-item')) {
+      if (Number(target.dataset.tabId) === dragContext.tabId) {
+        clearDropIndicator();
+        return;
+      }
+      updateDropIndicator(target, before, false);
+    } else if (target.matches('.group-section')) {
+      const header = target.querySelector('.group-header');
+      updateDropIndicator(header, true, false);
+    }
+  }
+}, 100);
+
 function handleTabDragStart(event) {
-  const { tabId, windowId } = event.currentTarget.dataset;
-  dragContext = { kind: 'tab', tabId: Number(tabId), windowId: Number(windowId) };
+  const { tabId, windowId, groupId } = event.currentTarget.dataset;
+  dragContext = { kind: 'tab', tabId: Number(tabId), windowId: Number(windowId), groupId: Number(groupId) };
   event.dataTransfer?.setData('text/plain', tabId);
   event.dataTransfer?.setDragImage(event.currentTarget, 0, 0);
   event.currentTarget.classList.add('dragging');
-}
-
-function handleTabDragEnd(event) {
-  event.currentTarget.classList.remove('dragging');
-  dragContext = null;
 }
 
 function handleGroupChipDragStart(event) {
@@ -557,43 +620,21 @@ function handleGroupChipDragStart(event) {
   if (!section) return;
   const groupId = Number(section.dataset.groupId);
   const windowId = Number(section.dataset.windowId);
-  dragContext = { kind: 'group', groupId, windowId };
+  dragContext = { kind: 'group', groupId, windowId, sourceGroupId: groupId };
   event.dataTransfer?.setData('text/plain', String(groupId));
   event.currentTarget.classList.add('dragging');
-}
-
-function handleGroupChipDragEnd(event) {
-  event.currentTarget.classList.remove('dragging');
-  dragContext = null;
-  clearDropIndicator();
 }
 
 const dropIndicator = document.createElement('div');
 dropIndicator.className = 'drop-indicator';
 const dropState = { visible: false, windowId: null, tabId: null, groupId: null, before: true, target: null, type: null };
 
-function positionDropIndicator(target, before) {
-  const rect = target.getBoundingClientRect();
-  dropIndicator.style.width = `${rect.width}px`;
-  dropIndicator.style.left = `${rect.left}px`;
-  dropIndicator.style.top = before ? `${rect.top - 1}px` : `${rect.bottom - 1}px`;
-  if (!dropIndicator.isConnected) {
-    document.body.appendChild(dropIndicator);
-  }
-  if (dropState.target && dropState.target !== target) {
-    dropState.target.classList.remove('drop-target-active');
-  }
-  dropState.target = target;
-  target.classList.add('drop-target-active');
-  dropState.visible = true;
-}
-
 function clearDropIndicator() {
   if (dropState.visible && dropIndicator.isConnected) {
     dropIndicator.remove();
   }
   if (dropState.target) {
-    dropState.target.classList.remove('drop-target-active', 'drag-target-before', 'drag-target-after');
+    dropState.target.classList.remove('drop-target-active');
   }
   dropState.visible = false;
   dropState.windowId = null;
@@ -604,96 +645,100 @@ function clearDropIndicator() {
   dropState.type = null;
 }
 
-function handleTabDragOver(event) {
-  if (!dragContext) {
-    return;
-  }
-  const target = event.currentTarget;
-  if (dragContext.kind === 'tab' && target.classList.contains('tab-item')) {
-    event.preventDefault();
-    const rect = target.getBoundingClientRect();
-    const before = event.clientY < rect.top + rect.height / 2;
-    dropState.windowId = Number(target.dataset.windowId);
-    dropState.tabId = Number(target.dataset.tabId);
-    dropState.before = before;
-    positionDropIndicator(target, before);
-    target.classList.toggle('drag-target-before', before);
-    target.classList.toggle('drag-target-after', !before);
-    event.dataTransfer.dropEffect = 'move';
-  } else if (dragContext.kind === 'group' && target.classList.contains('tab-item')) {
-    event.preventDefault();
-    const rect = target.getBoundingClientRect();
-    const before = event.clientY < rect.top + rect.height / 2;
-    dropState.windowId = Number(target.dataset.windowId);
-    dropState.tabId = Number(target.dataset.index);
-    dropState.before = before;
-    dropState.type = 'group-between';
-    positionDropIndicator(target, before);
-    event.dataTransfer.dropEffect = 'move';
+function moveElement(element, target, before) {
+  if (!element || !target) return;
+  if (before) {
+    target.parentNode.insertBefore(element, target);
+  } else {
+    target.parentNode.insertBefore(element, target.nextSibling);
   }
 }
 
-function handleTabDragLeave(event) {
-  if (!event.currentTarget.classList.contains('tab-item')) {
-    return;
-  }
-  if (dragContext && dragContext.kind === 'tab') {
-    return;
-  }
-  if (!event.currentTarget.contains(event.relatedTarget)) {
-    event.currentTarget.classList.remove('drag-target-before', 'drag-target-after');
-    clearDropIndicator();
-  }
-}
 
 async function handleTabDrop(event) {
   if (!dragContext) {
     return;
   }
   event.preventDefault();
-  const targetEl = event.currentTarget;
-  const dataset = targetEl?.dataset || {};
-  if (dragContext.kind === 'tab') {
-    const targetWindowId = Number(dataset.windowId ?? dropState.windowId ?? dragContext.windowId);
-    let targetIndex = Number(dataset.index ?? dropState.tabId ?? 0);
-    if (dropState.visible && dropState.tabId !== null) {
-      const targetTab = document.querySelector(`.tab-item[data-tab-id='${dropState.tabId}']`);
-      if (targetTab) {
-        targetIndex = Number(targetTab.dataset.index) + (dropState.before ? 0 : 1);
-      }
-    } else if (targetEl?.classList?.contains('drag-target-after')) {
-      targetIndex += 1;
+  clearDropIndicator();
+
+  const { kind, tabId, windowId: sourceWindowId, groupId: sourceGroupId } = dragContext;
+  const targetEl = event.target.closest('.tab-item, .group-header, .tab-list-inner.single');
+  if (!targetEl) return;
+
+  const targetWindowId = Number(targetEl.closest('.card').dataset.winId);
+
+  // Handle dropping a tab
+  if (kind === 'tab') {
+    const sourceTabEl = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
+    if (!sourceTabEl) return;
+
+    let newIndex = -1;
+    let newGroupId = undefined;
+
+    if (targetEl.matches('.tab-item')) {
+      const rect = targetEl.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      newIndex = Number(targetEl.dataset.index) + (before ? 0 : 1);
+      newGroupId = Number(targetEl.closest('.group-section')?.dataset.groupId);
+      moveElement(sourceTabEl.closest('ul'), targetEl.closest('ul'), before);
+    } else if (targetEl.matches('.group-header')) {
+      newGroupId = Number(targetEl.dataset.groupId);
+      const list = targetEl.parentElement.querySelector('.tab-list-inner');
+      list.appendChild(sourceTabEl.closest('ul'));
+    } else if (targetEl.matches('.tab-list-inner.single')) {
+      const rect = targetEl.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      newIndex = Number(targetEl.dataset.index) + (before ? 0 : 1);
+      moveElement(sourceTabEl.closest('ul'), targetEl, before);
     }
+
     try {
-      const movedTabId = dragContext.tabId;
-      await sendMessage({ type: 'move-tab', tabId: movedTabId, windowId: targetWindowId, index: targetIndex });
+      if (newGroupId !== undefined && newGroupId !== sourceGroupId) {
+        await sendMessage({ type: 'assign-group', tabIds: [tabId], groupId: newGroupId, windowId: targetWindowId });
+      }
+      await sendMessage({ type: 'move-tab', tabId, windowId: targetWindowId, index: newIndex });
+      if (sourceWindowId !== targetWindowId) {
+        // update local cache to prevent full reload
+        const sourceWindow = activeWindowsCache.find(w => w.id === sourceWindowId);
+        const targetWindow = activeWindowsCache.find(w => w.id === targetWindowId);
+        if (sourceWindow && targetWindow) {
+          const tabToMove = sourceWindow.tabs.find(t => t.id === tabId);
+          sourceWindow.tabs = sourceWindow.tabs.filter(t => t.id !== tabId);
+          targetWindow.tabs.splice(newIndex, 0, tabToMove);
+        }
+      }
       await loadActiveWindows();
-      requestAnimationFrame(() => markRelocatedTab(movedTabId, targetWindowId));
     } catch (err) {
       toast(err.message);
-    } finally {
-      if (targetEl?.classList?.contains('tab-item')) {
-        targetEl.classList.remove('drag-target', 'drag-target-before', 'drag-target-after');
-      }
-      dragContext = null;
-      clearDropIndicator();
+      await loadActiveWindows();
     }
-    return;
   }
-  if (dragContext.kind !== 'group') {
-    return;
-  }
-  const windowId = Number(dataset.windowId ?? dropState.windowId ?? dragContext.windowId);
-  const referenceIndex = Number(dataset.index ?? dropState.tabId ?? 0);
-  const targetIndex = dropState.before ? referenceIndex : referenceIndex + 1;
-  try {
-    await sendMessage({ type: 'move-group', groupId: dragContext.groupId, windowId, index: targetIndex });
-    await loadActiveWindows();
-  } catch (err) {
-    toast(err.message);
-  } finally {
-    dragContext = null;
-    clearDropIndicator();
+
+  // Handle dropping a group
+  else if (kind === 'group') {
+    const sourceGroupEl = document.querySelector(`.group-section[data-group-id='${sourceGroupId}']`);
+    if (!sourceGroupEl) return;
+
+    let newIndex = -1;
+    if (targetEl.matches('.tab-item') || targetEl.matches('.tab-list-inner.single')) {
+      const rect = targetEl.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      newIndex = Number(targetEl.dataset.index) + (before ? 0 : 1);
+      moveElement(sourceGroupEl, targetEl.closest('ul'), before);
+    } else if (targetEl.matches('.group-header')) {
+      const rect = targetEl.parentElement.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      newIndex = Number(targetEl.parentElement.dataset.groupStartIndex) + (before ? 0 : 1);
+      moveElement(sourceGroupEl, targetEl.parentElement, before);
+    }
+    try {
+      await sendMessage({ type: 'move-group', groupId: sourceGroupId, windowId: targetWindowId, index: newIndex });
+      await loadActiveWindows();
+    } catch (err) {
+      toast(err.message);
+      await loadActiveWindows();
+    }
   }
 }
 
@@ -788,27 +833,6 @@ async function handleGroupSectionDrop(event) {
   }
 }
 
-function handleGroupContainerDragOver(event) {
-  if (!dragContext || dragContext.kind !== 'group') return;
-  const container = event.currentTarget;
-  if (event.target.closest('.group-section')) return;
-  event.preventDefault();
-  dropState.windowId = Number(container.dataset.windowId);
-  dropState.groupId = null;
-  dropState.tabId = null;
-  dropState.before = false;
-  dropState.type = 'group';
-  positionDropIndicator(container, false);
-  event.dataTransfer.dropEffect = 'move';
-}
-
-function handleGroupContainerDragLeave(event) {
-  if (!dragContext || dragContext.kind !== 'group') return;
-  if (!event.currentTarget.contains(event.relatedTarget)) {
-    clearDropIndicator();
-  }
-}
-
 async function handleGroupContainerDrop(event) {
   if (!dragContext || dragContext.kind !== 'group') return;
   event.preventDefault();
@@ -839,29 +863,6 @@ async function handleGroupContainerDrop(event) {
   } finally {
     clearDropIndicator();
     dragContext = null;
-  }
-}
-
-function handleTabbedRowDragOver(event) {
-  if (!dragContext || dragContext.kind !== 'group') return;
-  const list = event.currentTarget;
-  if (!list.classList.contains('tab-list-inner')) return;
-  event.preventDefault();
-  const rect = list.getBoundingClientRect();
-  const before = event.clientY < rect.top + rect.height / 2;
-  dropState.windowId = Number(list.dataset.windowId);
-  dropState.tabId = Number(list.dataset.index);
-  dropState.groupId = null;
-  dropState.before = before;
-  dropState.type = 'group-between';
-  positionDropIndicator(list, before);
-  event.dataTransfer.dropEffect = 'move';
-}
-
-function handleTabbedRowDragLeave(event) {
-  if (!dragContext || dragContext.kind !== 'group') return;
-  if (!event.currentTarget.contains(event.relatedTarget)) {
-    clearDropIndicator();
   }
 }
 
@@ -960,6 +961,24 @@ async function saveMarkdownForTabIds(tabIds) {
   } else {
     toast(`Saved ${successes} markdown file(s).`);
   }
+}
+
+
+function throttle(callback, delay) {
+  let throttleTimeout = null;
+  let storedEvent = null;
+
+  const throttledCallback = event => {
+    storedEvent = event;
+    if (throttleTimeout) return;
+
+    throttleTimeout = setTimeout(() => {
+      callback(storedEvent);
+      throttleTimeout = null;
+    }, delay);
+  };
+
+  return throttledCallback;
 }
 
 loadAll();
