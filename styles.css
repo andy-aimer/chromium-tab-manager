@@ -281,6 +281,13 @@ menu {
   order: 2;
 }
 
+.group-count {
+  font-weight: normal;
+  color: #fff;
+  margin-left: auto;
+  font-size: .75rem;
+}
+
 .tab-list-inner {
   list-style: none;
   padding: 0;

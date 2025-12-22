@@ -273,9 +273,13 @@ function renderGroupSection(win, group, tabs) {
   chip.addEventListener('dragstart', handleGroupChipDragStart);
   chip.addEventListener('dragend', handleGroupChipDragEnd);
 
+  const groupCount = document.createElement('span');
+  groupCount.className = 'group-count';
+  groupCount.textContent = `${tabs.length} tab(s)`;
   const groupCheckbox = createSelectCheckbox('group', { windowId: win.id, groupId: group.id });
   header.append(toggleBtn);
   header.append(chip);
+  header.append(groupCount);
   header.append(groupCheckbox);
   header.append(toggleBtnRight);
   groupCheckbox.addEventListener('change', () => {
