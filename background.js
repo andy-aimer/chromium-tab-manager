@@ -346,6 +346,42 @@ async function saveMarkdownForTabs(tabIds) {
   return results;
 }
 
+async function moveGroupToNewWindow(groupId, windowId) {
+  const tabs = await chrome.tabs.query({ windowId, groupId });
+  if (!tabs.length) {
+    throw new Error('No tabs found in group');
+  }
+  const group = await chrome.tabGroups.get(groupId);
+  const ordered = tabs.slice().sort((a, b) => a.index - b.index);
+  const firstTab = ordered[0];
+  const remainingTabIds = ordered.slice(1).map(tab => tab.id);
+  const newWindow = await chrome.windows.create({ tabId: firstTab.id });
+  if (remainingTabIds.length) {
+    await chrome.tabs.move(remainingTabIds, { windowId: newWindow.id, index: -1 });
+  }
+  const allTabIds = ordered.map(tab => tab.id);
+  const newGroupId = await chrome.tabs.group({
+    tabIds: allTabIds,
+    createProperties: { windowId: newWindow.id },
+  });
+  await chrome.tabGroups.update(newGroupId, {
+    title: group.title || '',
+    color: group.color,
+    collapsed: group.collapsed,
+  });
+  return newWindow;
+}
+
+async function refocusManager(sender) {
+  if (!sender?.tab?.id) {
+    return;
+  }
+  await chrome.tabs.update(sender.tab.id, { active: true });
+  if (sender.tab.windowId) {
+    await chrome.windows.update(sender.tab.windowId, { focused: true });
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) {
     console.warn(`Ignoring message from unknown sender: ${sender.id}`);
@@ -395,6 +431,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'move-group':
         respond(await chrome.tabGroups.move(message.groupId, { index: message.index, windowId: message.windowId }));
         break;
+      case 'move-to-new-window': {
+        let result;
+        if (message.kind === 'tab') {
+          result = await chrome.windows.create({ tabId: message.tabId });
+        } else if (message.kind === 'group') {
+          result = await moveGroupToNewWindow(message.groupId, message.windowId);
+        } else {
+          throw new Error('Unknown move target');
+        }
+        await refocusManager(sender);
+        respond(result);
+        break;
+      }
       case 'toast':
         if (message.message) {
           console.info('[Tab Manager]', message.message);

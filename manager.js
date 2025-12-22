@@ -9,6 +9,8 @@ const traceHistoryToggle = document.getElementById('trace-history');
 
 let dragContext = null;
 let activeWindowsCache = [];
+let windowDragContext = null;
+const WINDOW_ORDER_KEY = 'tab-manager:window-order';
 
 refreshBtn.addEventListener('click', () => loadAll());
 columnSelect.addEventListener('change', e => {
@@ -66,10 +68,37 @@ document.addEventListener('dragleave', event => {
 
 document.addEventListener('dragend', () => {
   dragContext = null;
+  windowDragContext = null;
   clearDropIndicator();
+  clearWindowDropIndicator();
   const draggingElement = document.querySelector('.dragging');
   if (draggingElement) {
     draggingElement.classList.remove('dragging');
+  }
+});
+
+document.addEventListener('drop', async event => {
+  if (!dragContext) return;
+  const targetCard = event.target.closest('.card');
+  if (targetCard) return;
+  event.preventDefault();
+  try {
+    if (dragContext.kind === 'tab') {
+      await sendMessage({ type: 'move-to-new-window', kind: 'tab', tabId: dragContext.tabId });
+    } else if (dragContext.kind === 'group') {
+      await sendMessage({
+        type: 'move-to-new-window',
+        kind: 'group',
+        groupId: dragContext.groupId,
+        windowId: dragContext.windowId,
+      });
+    }
+    await loadActiveWindows();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    dragContext = null;
+    clearDropIndicator();
   }
 });
 
@@ -125,10 +154,12 @@ function activateInlineRename(targetEl, currentValue, onSave) {
 
 async function loadActiveWindows() {
   const windows = await sendMessage({ type: 'get-active' });
-  activeWindowsCache = windows;
+  const order = await loadWindowOrder();
+  const sortedWindows = sortWindowsByOrder(windows, order);
+  activeWindowsCache = sortedWindows;
   activeListEl.innerHTML = '';
-  activeCountEl.textContent = windows.length ? `${windows.length} window(s)` : 'No windows';
-  windows.forEach(win => activeListEl.appendChild(createWindowCard(win)));
+  activeCountEl.textContent = sortedWindows.length ? `${sortedWindows.length} window(s)` : 'No windows';
+  sortedWindows.forEach(win => activeListEl.appendChild(createWindowCard(win)));
   applyTraceHistory();
 }
 
@@ -138,6 +169,10 @@ function createWindowCard(win) {
   card.dataset.winId = win.id;
   const header = card.querySelector('.card-header');
   header.classList.add('compact-header');
+  header.setAttribute('draggable', 'true');
+  header.addEventListener('dragstart', handleWindowDragStart);
+  card.addEventListener('dragover', handleWindowDragOver);
+  card.addEventListener('drop', handleWindowDrop);
   const windowCheckbox = createSelectCheckbox('window', { windowId: win.id });
   const titleEl = card.querySelector('.title');
   titleEl.textContent = win.title;
@@ -226,6 +261,95 @@ function createWindowCard(win) {
   return frag;
 }
 
+async function loadWindowOrder() {
+  try {
+    const { [WINDOW_ORDER_KEY]: order = [] } = await chrome.storage.local.get(WINDOW_ORDER_KEY);
+    return Array.isArray(order) ? order : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+async function saveWindowOrder(order) {
+  try {
+    await chrome.storage.local.set({ [WINDOW_ORDER_KEY]: order });
+  } catch (err) {
+    console.warn('Failed to save window order', err);
+  }
+}
+
+function sortWindowsByOrder(windows, order) {
+  if (!order.length) {
+    return windows;
+  }
+  const indexById = new Map(order.map((id, index) => [id, index]));
+  return [...windows].sort((a, b) => {
+    const aIndex = indexById.get(a.id);
+    const bIndex = indexById.get(b.id);
+    if (aIndex === undefined && bIndex === undefined) return 0;
+    if (aIndex === undefined) return 1;
+    if (bIndex === undefined) return -1;
+    return aIndex - bIndex;
+  });
+}
+
+function persistWindowOrderFromDom() {
+  const order = Array.from(activeListEl.querySelectorAll('.card'))
+    .map(card => Number(card.dataset.winId))
+    .filter(Boolean);
+  saveWindowOrder(order);
+  const windowById = new Map(activeWindowsCache.map(win => [win.id, win]));
+  const reordered = order.map(id => windowById.get(id)).filter(Boolean);
+  const missing = activeWindowsCache.filter(win => !order.includes(win.id));
+  activeWindowsCache = reordered.concat(missing);
+}
+
+function handleWindowDragStart(event) {
+  if (dragContext) {
+    return;
+  }
+  const card = event.currentTarget.closest('.card');
+  if (!card) {
+    return;
+  }
+  windowDragContext = { windowId: Number(card.dataset.winId) };
+  event.dataTransfer?.setData('text/plain', `window:${card.dataset.winId}`);
+  event.dataTransfer.effectAllowed = 'move';
+  card.classList.add('dragging');
+}
+
+function handleWindowDragOver(event) {
+  if (!windowDragContext) {
+    return;
+  }
+  const card = event.currentTarget;
+  if (Number(card.dataset.winId) === windowDragContext.windowId) {
+    return;
+  }
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  const rect = card.getBoundingClientRect();
+  const before = event.clientY < rect.top + rect.height / 2;
+  updateWindowDropIndicator(card, before);
+}
+
+function handleWindowDrop(event) {
+  if (!windowDragContext) {
+    return;
+  }
+  event.preventDefault();
+  const targetCard = event.currentTarget;
+  const sourceCard = activeListEl.querySelector(`.card[data-win-id='${windowDragContext.windowId}']`);
+  if (!sourceCard || sourceCard === targetCard) {
+    return;
+  }
+  clearWindowDropIndicator();
+  const rect = targetCard.getBoundingClientRect();
+  const before = event.clientY < rect.top + rect.height / 2;
+  moveElement(sourceCard, targetCard, before);
+  persistWindowOrderFromDom();
+}
+
 function buildWindowSections(win) {
   const sections = [];
   const orderedTabs = [...win.tabs].sort((a, b) => a.index - b.index);
@@ -272,6 +396,8 @@ function renderGroupSection(win, group, tabs) {
   header.dataset.groupId = group.id;
   header.dataset.windowId = win.id;
   header.addEventListener('drop', handleGroupDrop);
+  header.draggable = true;
+  header.addEventListener('dragstart', handleGroupChipDragStart);
 
   const toggleBtn = document.createElement('button');
   toggleBtn.className = 'toggle-tabs';
@@ -298,7 +424,7 @@ function renderGroupSection(win, group, tabs) {
 
   const groupCount = document.createElement('span');
   groupCount.className = 'group-count';
-  groupCount.textContent = `${tabs.length} tab(s)`;
+  groupCount.textContent = `${tabs.length} ${tabs.length === 1 ? 'tab' : 'tabs'}`;
   const groupCheckbox = createSelectCheckbox('group', { windowId: win.id, groupId: group.id });
   header.append(toggleBtn);
   header.append(chip);
@@ -615,6 +741,12 @@ function updateDropIndicator(target, before, isGroup) {
   if (!dropIndicator.isConnected) {
     document.body.appendChild(dropIndicator);
   }
+  if (dropIndicatorTimer) {
+    clearTimeout(dropIndicatorTimer);
+  }
+  dropIndicatorTimer = setTimeout(() => {
+    clearDropIndicator();
+  }, 1000);
 }
 
 const handleThrottledDragOver = throttle(event => {
@@ -681,10 +813,17 @@ function handleGroupChipDragStart(event) {
 const dropIndicator = document.createElement('div');
 dropIndicator.className = 'drop-indicator';
 const dropState = { visible: false, windowId: null, tabId: null, groupId: null, before: true, target: null, type: null };
+let dropIndicatorTimer = null;
+const windowDropIndicator = document.createElement('div');
+windowDropIndicator.className = 'window-drop-indicator';
 
 function clearDropIndicator() {
-  if (dropState.visible && dropIndicator.isConnected) {
+  if (dropIndicator.isConnected) {
     dropIndicator.remove();
+  }
+  if (dropIndicatorTimer) {
+    clearTimeout(dropIndicatorTimer);
+    dropIndicatorTimer = null;
   }
   if (dropState.target) {
     dropState.target.classList.remove('drop-target-active');
@@ -696,6 +835,24 @@ function clearDropIndicator() {
   dropState.before = true;
   dropState.target = null;
   dropState.type = null;
+}
+
+function updateWindowDropIndicator(target, before) {
+  const rect = target.getBoundingClientRect();
+  const height = 12;
+  windowDropIndicator.style.width = `${rect.width}px`;
+  windowDropIndicator.style.left = `${rect.left}px`;
+  windowDropIndicator.style.height = `${height}px`;
+  windowDropIndicator.style.top = before ? `${rect.top - height / 2}px` : `${rect.bottom - height / 2}px`;
+  if (!windowDropIndicator.isConnected) {
+    document.body.appendChild(windowDropIndicator);
+  }
+}
+
+function clearWindowDropIndicator() {
+  if (windowDropIndicator.isConnected) {
+    windowDropIndicator.remove();
+  }
 }
 
 function moveElement(element, target, before) {
@@ -733,7 +890,8 @@ async function handleTabDrop(event) {
       const rect = targetEl.getBoundingClientRect();
       const before = event.clientY < rect.top + rect.height / 2;
       newIndex = Number(targetEl.dataset.index) + (before ? 0 : 1);
-      newGroupId = Number(targetEl.closest('.group-section')?.dataset.groupId);
+      const targetGroupId = targetEl.closest('.group-section')?.dataset.groupId;
+      newGroupId = targetGroupId === undefined ? -1 : Number(targetGroupId);
       moveElement(sourceTabEl.closest('ul'), targetEl.closest('ul'), before);
     } else if (targetEl.matches('.group-header')) {
       newGroupId = Number(targetEl.dataset.groupId);
@@ -743,11 +901,12 @@ async function handleTabDrop(event) {
       const rect = targetEl.getBoundingClientRect();
       const before = event.clientY < rect.top + rect.height / 2;
       newIndex = Number(targetEl.dataset.index) + (before ? 0 : 1);
+      newGroupId = -1;
       moveElement(sourceTabEl.closest('ul'), targetEl, before);
     }
 
     try {
-      if (newGroupId !== undefined && newGroupId !== sourceGroupId) {
+      if (typeof newGroupId === 'number' && !Number.isNaN(newGroupId) && newGroupId !== sourceGroupId) {
         await sendMessage({ type: 'assign-group', tabIds: [tabId], groupId: newGroupId, windowId: targetWindowId });
       }
       await sendMessage({ type: 'move-tab', tabId, windowId: targetWindowId, index: newIndex });
@@ -813,7 +972,6 @@ async function handleGroupDrop(event) {
   const target = dataset.dropTarget;
   const windowId = Number(dataset.windowId ?? dragContext.windowId);
   try {
-    const movedTabId = dragContext.tabId;
     if (targetEl?.classList?.contains('tab-item')) {
       targetEl.classList.remove('drag-target', 'drag-target-before', 'drag-target-after');
     }
@@ -826,7 +984,6 @@ async function handleGroupDrop(event) {
       await sendMessage({ type: 'assign-group', tabIds: [dragContext.tabId], groupId: -1, windowId });
     }
     await loadActiveWindows();
-    requestAnimationFrame(() => markRelocatedTab(movedTabId, windowId));
   } catch (err) {
     toast(err.message);
   } finally {
@@ -955,26 +1112,6 @@ function colorToHex(color) {
     orange: '#ea580c',
   };
   return map[color] || '#2563eb';
-}
-
-function markRelocatedTab(tabId, windowId) {
-  let attempts = 0;
-  function highlight() {
-    const selector = windowId
-      ? `.tab-item[data-tab-id='${tabId}'][data-window-id='${windowId}']`
-      : `.tab-item[data-tab-id='${tabId}']`;
-    const item = document.querySelector(selector);
-    if (!item) {
-      if (attempts < 10) {
-        attempts += 1;
-        requestAnimationFrame(highlight);
-      }
-      return;
-    }
-    item.classList.add('relocated');
-    setTimeout(() => item.classList.remove('relocated'), 10000);
-  }
-  requestAnimationFrame(highlight);
 }
 
 function hexToRgba(hex, alpha) {

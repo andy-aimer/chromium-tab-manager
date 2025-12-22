@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Tab Manager (Local Only)",
-  "description": "manage and one-shot bookmark chrome windows, groups, and tabs.",
-  "version": "1.1.2",
+  "name": "Heaps of Tabs",
+  "description": "manage heaps of tabs and one-shot bookmark windows, groups, and tabs.",
+  "version": "1.1.3",
   "action": {
     "default_title": "Tab Manager"
   },

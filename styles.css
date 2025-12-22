@@ -139,6 +139,19 @@ button.danger {
   break-inside: avoid;
 }
 
+.card.dragging {
+  outline: 2px solid #7dd3fc;
+  outline-offset: -2px;
+}
+
+.window-drop-indicator {
+  position: fixed;
+  background: rgba(125, 211, 252, 0.35);
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 9998;
+}
+
 .card-header {
   display: flex;
   justify-content: flex-start;
@@ -204,22 +217,8 @@ button.danger {
 .tab-item.dragging {
   opacity: .6;
   cursor: grabbing;
-  border: 2px solid #2563eb;
-  background: rgba(37, 99, 235, 0.15);
-}
-
-.tab-item.relocated {
-  background: orange;
-  animation: fadeRelocate 10s forwards;
-}
-
-@keyframes fadeRelocate {
-  0% {
-    background: orange;
-  }
-  100% {
-    background: transparent;
-  }
+  border: 2px solid #7dd3fc;
+  background: rgba(125, 211, 252, 0.2);
 }
 
 .text-sm {
@@ -273,11 +272,17 @@ menu {
 .group-header {
   display: flex;
   justify-content: flex-start;
-  align-items: center;
+  align-items: flex-start;
   gap: .75rem;
   margin-bottom: 0;
   background: var(--group-color, var(--accent));
   font-weight: bold;
+}
+
+.group-header.dragging,
+.group-chip.dragging {
+  outline: 2px solid #7dd3fc;
+  outline-offset: -2px;
 }
 
 .group-header.muted {
@@ -292,14 +297,22 @@ menu {
   font-size: .8rem;
   cursor: pointer;
   margin-left: 0;
-  order: 2;
+  
 }
 
 .group-count {
   font-weight: normal;
   color: #fff;
-  margin-left: auto;
+  margin-left: 0;
   font-size: .75rem;
+}
+
+.group-header .select-checkbox {
+  margin-left: auto;
+}
+
+.group-header .toggle-tabs {
+  align-self: flex-start;
 }
 
 .tab-list-inner {
@@ -375,7 +388,7 @@ menu {
 .drop-indicator {
   position: fixed;
   height: 2px;
-  background: orange;
+  background: #7dd3fc;
   pointer-events: none;
   z-index: 9999;
 }
@@ -387,7 +400,7 @@ menu {
   border-radius: 2px;
   background: #fffbea;
   width: auto;
-  order: 1;
+
 }
 
 .tab-icon {
@@ -504,9 +517,9 @@ menu {
   justify-content: center;
   padding: 0;
   margin: 0;
-  border: 1px solid var(--border);
+  border: 1px solid #676767;
   background: #fff;
-  border-radius: 2px;
+  border-radius: 5px;
   font-weight: 700;
   line-height: 1;
   order: 0;
