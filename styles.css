@@ -112,7 +112,7 @@ menu button {
 }
 
 button:hover {
-  /*background: var(--bg);*/
+ 
 }
 
 button.primary {
@@ -180,19 +180,21 @@ button.danger {
 }
 
 .tab-item {
+  border-bottom: 1px solid #aaaaaa;
+  border-left: 0px solid #f50606;
+  border-right: 0px solid #f50606;
+  
   padding-top: .05rem;
   padding-right: .2rem;
   padding-bottom: .05rem;
   padding-left: .2rem;
   margin: 0;
-  border: 0;
-  border-radius: 2px;
   font-size: .85rem;
   transition: background .15s ease, border .15s ease;
   display: flex;
   align-items: center;
   gap: .35rem;
-  background: #fff;
+
 }
 
 .tab-item.muted {
@@ -255,16 +257,16 @@ menu {
   gap: 0;
   margin-left: 0.72rem;
   margin-right: 0.72rem;
+  border-top: 1px solid #aaaaaa;
   
-  border-top: 1px solid #676767;
+ 
 }
 
 .group-section {
   border: 3px solid var(--group-color, var(--border));
-  border-right-width: 3px;
-  border-radius: 0;
+  border-radius: 0; 
   padding: 0;
-  background: var(--group-bg, #fdfcfe);
+ 
 
 }
 
@@ -305,21 +307,19 @@ menu {
   padding: 0;
   margin: 0;
   display: flex;
-  flex-direction: column;
-  border: 0;
-  border-bottom: 1px solid #676767;
-  padding-left: .3rem;
+  flex-direction: column; 
+
 }
 
 .tab-list-inner.single {
-
+  background-color: transparent;
+    
+    border-left: 1px solid #aaaaaa;
+    border-right: 1px solid #aaaaaa;
 }
 
 .tab-list-inner .tab-item {
-  padding-top: .05rem;
-  padding-right: .2rem;
-  padding-bottom: .05rem;
-  padding-left: .2rem;
+ 
   cursor: grab;
   position: relative;
 }
@@ -346,7 +346,7 @@ menu {
 .tab-item.pinned {
   opacity: .7;
   cursor: not-allowed;
-  /*padding-left: .78rem;*/
+ 
 }
 
 .tab-item.pinned::before {
