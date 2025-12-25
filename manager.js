@@ -761,7 +761,7 @@ function updateDropIndicator(target, before, isGroup) {
 
 const handleThrottledDragOver = throttle(event => {
   if (!dragContext) return;
-  const target = event.target.closest('.tab-item, .group-section, .tab-list-inner.single');
+  const target = event.target.closest('.tab-item, .group-section, .tab-list-inner.single, .group-header, .tab-collection');
   if (!target) {
     clearDropIndicator();
     return;
@@ -770,25 +770,31 @@ const handleThrottledDragOver = throttle(event => {
   const isMultiTab = dragContext.kind === 'tabs';
   const rect = target.getBoundingClientRect();
   const before = event.clientY < rect.top + rect.height / 2;
-
-  if (isGroup) {
-    if (target.matches('.tab-item')) {
-      const parentGroup = target.closest('.group-section');
-      if (parentGroup && Number(parentGroup.dataset.groupId) === dragContext.groupId) {
-        clearDropIndicator();
-        return;
-      }
-      updateDropIndicator(target, before, true);
-    } else if (target.matches('.group-section')) {
-      if (Number(target.dataset.groupId) === dragContext.groupId) {
-        clearDropIndicator();
-        return;
-      }
-      updateDropIndicator(target, before, true);
-    } else if (target.matches('.tab-list-inner.single')) {
-      updateDropIndicator(target, before, true);
+if (isGroup) {
+  if (target.matches('.tab-item')) {
+    const parentGroup = target.closest('.group-section');
+    if (parentGroup && Number(parentGroup.dataset.groupId) === dragContext.groupId) {
+      clearDropIndicator();
+      return;
     }
-  } else {
+    updateDropIndicator(target, before, true);
+  } else if (target.matches('.group-section')) {
+    if (Number(target.dataset.groupId) === dragContext.groupId) {
+      clearDropIndicator();
+      return;
+    }
+    updateDropIndicator(target, before, true);
+  } else if (target.matches('.tab-list-inner.single')) {
+    updateDropIndicator(target, before, true);
+  } else if (target.matches('.group-header')) {
+    const parentSection = target.closest('.group-section');
+    if (parentSection && Number(parentSection.dataset.groupId) === dragContext.groupId) {
+      clearDropIndicator();
+      return;
+    }
+    updateDropIndicator(target, true, true);
+  }
+} else {
     // Dragging a tab or multiple tabs
     if (target.matches('.tab-item')) {
       // For multi-tab drag, don't prevent drop if one of the dragged tabs matches the target
@@ -798,8 +804,37 @@ const handleThrottledDragOver = throttle(event => {
       }
       updateDropIndicator(target, before, false);
     } else if (target.matches('.group-section')) {
-      const header = target.querySelector('.group-header');
+      // For group sections, show indicator based on drop position relative to the group
+      updateDropIndicator(target, before, false);
+    } else if (target.matches('.group-header')) {
+      const header = target;
       updateDropIndicator(header, true, false);
+    } else if (target.matches('.tab-collection')) {
+      // Handle dragging over the tab collection container
+      const firstChild = target.firstChild;
+      if (firstChild) {
+        const firstRect = firstChild.getBoundingClientRect();
+        const droppingAtTop = event.clientY < firstRect.top + firstRect.height / 2;
+        if (droppingAtTop) {
+          // Show indicator at the very top
+          updateDropIndicator(target, true, false);
+        } else {
+          // Show indicator at the very bottom
+          const lastChild = target.lastChild;
+          if (lastChild) {
+            const lastRect = lastChild.getBoundingClientRect();
+            const droppingAtBottom = event.clientY > lastRect.bottom - lastRect.height / 2;
+            if (droppingAtBottom) {
+              updateDropIndicator(target, false, false);
+            } else {
+              clearDropIndicator();
+            }
+          }
+        }
+      } else {
+        // Empty collection - show indicator in the middle
+        updateDropIndicator(target, true, false);
+      }
     }
   }
 }, 100);
@@ -919,7 +954,7 @@ async function handleTabDrop(event) {
   clearDropIndicator();
 
   const { kind, tabId, tabIds, windowId: sourceWindowId, groupId: sourceGroupId } = dragContext;
-  const targetEl = event.target.closest('.tab-item, .group-header, .tab-list-inner.single');
+  const targetEl = event.target.closest('.tab-item, .group-header, .tab-list-inner.single, .group-section');
   if (!targetEl) return;
 
   const targetWindowId = Number(targetEl.closest('.card').dataset.winId);
@@ -956,20 +991,71 @@ async function handleTabDrop(event) {
           list.appendChild(sourceTabEl.closest('ul'));
         }
       }
-    } else if (targetEl.matches('.tab-list-inner.single')) {
-      const rect = targetEl.getBoundingClientRect();
-      const before = event.clientY < rect.top + rect.height / 2;
-      newIndex = Number(targetEl.dataset.index) + (before ? 0 : 1);
-      newGroupId = -1;
-      
-      // For multi-tab drag, we don't move elements in UI since we'll reload
-      if (!isMultiTab) {
-        const sourceTabEl = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
-        if (sourceTabEl) {
-          moveElement(sourceTabEl.closest('ul'), targetEl, before);
-        }
+  } else if (targetEl.matches('.tab-list-inner.single')) {
+    const rect = targetEl.getBoundingClientRect();
+    const before = event.clientY < rect.top + rect.height / 2;
+    newIndex = Number(targetEl.dataset.index) + (before ? 0 : 1);
+    newGroupId = -1;
+    
+    // For multi-tab drag, we don't move elements in UI since we'll reload
+    if (!isMultiTab) {
+      const sourceTabEl = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
+      if (sourceTabEl) {
+        moveElement(sourceTabEl.closest('ul'), targetEl, before);
       }
     }
+  } else if (targetEl.matches('.group-section')) {
+    // Handle dropping on a group section - this fixes the issue with groups at first position
+    const rect = targetEl.getBoundingClientRect();
+    const before = event.clientY < rect.top + rect.height / 2;
+    
+    if (before) {
+      // Drop before the group - use the group's start index
+      newIndex = Number(targetEl.dataset.groupStartIndex);
+      newGroupId = -1; // Ungrouped position before the group
+    } else {
+      // Drop after the group - use the group's end index + 1
+      newIndex = Number(targetEl.dataset.groupEndIndex) + 1;
+      newGroupId = -1; // Ungrouped position after the group
+    }
+  } else if (targetEl.matches('.tab-collection')) {
+    // Handle dropping directly on the tab collection (when no other targets are available)
+    // This allows dropping at the very beginning or end of the window
+    const firstChild = targetEl.firstChild;
+    if (!firstChild) {
+      // Empty collection - drop at position 0
+      newIndex = 0;
+      newGroupId = -1;
+    } else {
+      // Check if we're dropping near the top (before first element)
+      const firstRect = firstChild.getBoundingClientRect();
+      const droppingAtTop = event.clientY < firstRect.top + firstRect.height / 2;
+      
+      if (droppingAtTop) {
+        // Drop at the very beginning
+        if (firstChild.matches('.group-section')) {
+          // First element is a group - drop before it
+          newIndex = Number(firstChild.dataset.groupStartIndex);
+        } else {
+          // First element is a tab - drop at index 0
+          newIndex = 0;
+        }
+        newGroupId = -1;
+      } else {
+        // Drop at the very end
+        const lastChild = targetEl.lastChild;
+        const lastRect = lastChild.getBoundingClientRect();
+        if (lastChild.matches('.group-section')) {
+          // Last element is a group - drop after it
+          newIndex = Number(lastChild.dataset.groupEndIndex) + 1;
+        } else {
+          // Last element is a tab - drop after it
+          newIndex = Number(lastChild.dataset.index) + 1;
+        }
+        newGroupId = -1;
+      }
+    }
+  }
 
     try {
       if (typeof newGroupId === 'number' && !Number.isNaN(newGroupId)) {
@@ -1031,6 +1117,12 @@ async function handleTabDrop(event) {
       const before = event.clientY < rect.top + rect.height / 2;
       newIndex = Number(targetEl.parentElement.dataset.groupStartIndex) + (before ? 0 : 1);
       moveElement(sourceGroupEl, targetEl.parentElement, before);
+    } else if (targetEl.matches('.group-section')) {
+      // Handle group-to-group section drops
+      const rect = targetEl.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      newIndex = before ? Number(targetEl.dataset.groupStartIndex) : Number(targetEl.dataset.groupEndIndex) + 1;
+      moveElement(sourceGroupEl, targetEl, before);
     }
     try {
       await sendMessage({ type: 'move-group', groupId: sourceGroupId, windowId: targetWindowId, index: newIndex });
