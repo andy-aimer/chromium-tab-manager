@@ -807,8 +807,7 @@ if (isGroup) {
       // For group sections, show indicator based on drop position relative to the group
       updateDropIndicator(target, before, false);
     } else if (target.matches('.group-header')) {
-      const header = target;
-      updateDropIndicator(header, true, false);
+updateDropIndicator(target, before, false);
     } else if (target.matches('.tab-collection')) {
       // Handle dragging over the tab collection container
       const firstChild = target.firstChild;
@@ -1197,29 +1196,71 @@ function handleGroupSectionDragLeave(event) {
 }
 
 async function handleGroupSectionDrop(event) {
-  if (!dragContext || dragContext.kind !== 'group') return;
-  event.preventDefault();
-  event.stopPropagation();
-  const section = event.currentTarget;
-  const windowId = Number(section.dataset.windowId);
-  const targetGroupId = Number(section.dataset.groupId);
-  if (targetGroupId === dragContext.groupId) {
-    clearDropIndicator();
-    dragContext = null;
+  if (!dragContext) return;
+
+  // New part for tab drop
+  if (dragContext.kind === 'tab') {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const section = event.currentTarget;
+    const windowId = Number(section.dataset.windowId);
+    const { tabId, groupId: sourceGroupId, windowId: sourceWindowId } = dragContext;
+
+    const startIndex = Number(section.dataset.groupStartIndex || 0);
+
+    const rect = section.getBoundingClientRect();
+    const before = event.clientY < rect.top + rect.height / 2;
+    const targetIndex = before ? startIndex : (Number(section.dataset.groupEndIndex || startIndex) + 1);
+
+    try {
+      if (windowId === sourceWindowId && sourceGroupId > -1) {
+          await sendMessage({ type: 'assign-group', tabIds: [tabId], groupId: -1 });
+      }
+
+      await sendMessage({
+          type: 'move-tab',
+          tabId,
+          windowId,
+          index: targetIndex,
+      });
+      await loadActiveWindows();
+    } catch (err) {
+        toast(err.message);
+        await loadActiveWindows();
+    } finally {
+        clearDropIndicator();
+        dragContext = null;
+    }
     return;
   }
-  const startIndex = Number(section.dataset.groupStartIndex || 0);
-  const endIndex = Number(section.dataset.groupEndIndex || startIndex);
-  const before = dropState.before;
-  const targetIndex = before ? startIndex : endIndex + 1;
-  try {
-    await sendMessage({ type: 'move-group', groupId: dragContext.groupId, windowId, index: targetIndex });
-    await loadActiveWindows();
-  } catch (err) {
-    toast(err.message);
-  } finally {
-    clearDropIndicator();
-    dragContext = null;
+
+
+  if (dragContext.kind === 'group') {
+    event.preventDefault();
+    event.stopPropagation();
+    const section = event.currentTarget;
+    const windowId = Number(section.dataset.windowId);
+    // ... existing group drop logic
+    const targetGroupId = Number(section.dataset.groupId);
+    if (targetGroupId === dragContext.groupId) {
+      clearDropIndicator();
+      dragContext = null;
+      return;
+    }
+    const startIndex = Number(section.dataset.groupStartIndex || 0);
+    const endIndex = Number(section.dataset.groupEndIndex || startIndex);
+    const before = dropState.before;
+    const targetIndex = before ? startIndex : endIndex + 1;
+    try {
+      await sendMessage({ type: 'move-group', groupId: dragContext.groupId, windowId, index: targetIndex });
+      await loadActiveWindows();
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      clearDropIndicator();
+      dragContext = null;
+    }
   }
 }
 
