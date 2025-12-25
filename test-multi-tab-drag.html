@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multi-tab Drag Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .test-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .window {
+            border: 2px solid #ccc;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 100px;
+        }
+        .tab {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .tab.dragging {
+            opacity: 0.6;
+            background: #e0f7fa;
+            border: 2px solid #4dd0e1;
+        }
+        .checkbox {
+            cursor: pointer;
+        }
+        .drop-zone {
+            border: 2px dashed #999;
+            min-height: 50px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        .instructions {
+            background: #fff8e1;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Multi-tab Drag-and-Drop Test</h1>
+    
+    <div class="instructions">
+        <h3>Test Instructions:</h3>
+        <ol>
+            <li>Check multiple tabs using the checkboxes</li>
+            <li>Drag one of the checked tabs</li>
+            <li>All checked tabs should be dragged together</li>
+            <li>Drop them in the drop zone below</li>
+            <li>Check console for logged events</li>
+        </ol>
+    </div>
+    
+    <div class="test-container">
+        <div class="window" id="source-window">
+            <h2>Source Window</h2>
+            <div class="tab" draggable="true" data-tab-id="1">
+                <input type="checkbox" class="checkbox" data-tab-id="1">
+                <span>Tab 1 - Google</span>
+            </div>
+            <div class="tab" draggable="true" data-tab-id="2">
+                <input type="checkbox" class="checkbox" data-tab-id="2">
+                <span>Tab 2 - YouTube</span>
+            </div>
+            <div class="tab" draggable="true" data-tab-id="3">
+                <input type="checkbox" class="checkbox" data-tab-id="3">
+                <span>Tab 3 - GitHub</span>
+            </div>
+            <div class="tab" draggable="true" data-tab-id="4">
+                <input type="checkbox" class="checkbox" data-tab-id="4">
+                <span>Tab 4 - Stack Overflow</span>
+            </div>
+        </div>
+        
+        <div class="drop-zone" id="drop-zone">
+            <h3>Drop Zone</h3>
+            <p>Drop checked tabs here</p>
+        </div>
+    </div>
+    
+    <script>
+        // Simplified version of the multi-tab drag functionality
+        let dragContext = null;
+        
+        // Add drag event listeners
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('dragstart', handleTabDragStart);
+        });
+        
+        document.addEventListener('dragover', e => {
+            e.preventDefault();
+        });
+        
+        document.addEventListener('drop', handleDrop);
+        
+        document.addEventListener('dragend', () => {
+            if (dragContext?.kind === 'tabs') {
+                document.querySelectorAll('.tab.dragging').forEach(el => {
+                    el.classList.remove('dragging');
+                });
+            } else {
+                const draggingElement = document.querySelector('.tab.dragging');
+                if (draggingElement) {
+                    draggingElement.classList.remove('dragging');
+                }
+            }
+            dragContext = null;
+        });
+        
+        function handleTabDragStart(event) {
+            const tabId = Number(event.currentTarget.dataset.tabId);
+            
+            // Check if this is a multi-tab drag operation
+            const checkedTabIds = Array.from(document.querySelectorAll(".checkbox:checked"))
+                .map(input => Number(input.dataset.tabId))
+                .filter(Boolean);
+            
+            if (checkedTabIds.length > 1 && checkedTabIds.includes(tabId)) {
+                // Multi-tab drag operation
+                dragContext = { 
+                    kind: 'tabs', 
+                    tabIds: checkedTabIds
+                };
+                
+                console.log('Starting multi-tab drag with tabs:', checkedTabIds);
+                
+                // Highlight all checked tabs during drag
+                checkedTabIds.forEach(checkedTabId => {
+                    const tabElement = document.querySelector(`.tab[data-tab-id='${checkedTabId}']`);
+                    if (tabElement) {
+                        tabElement.classList.add('dragging');
+                    }
+                });
+            } else {
+                // Single tab drag operation
+                dragContext = { kind: 'tab', tabId: tabId };
+                console.log('Starting single tab drag with tab:', tabId);
+                event.currentTarget.classList.add('dragging');
+            }
+        }
+        
+        function handleDrop(event) {
+            event.preventDefault();
+            
+            if (!dragContext) return;
+            
+            const dropZone = document.getElementById('drop-zone');
+            
+            if (dragContext.kind === 'tabs') {
+                console.log('Dropped multiple tabs:', dragContext.tabIds);
+                const message = document.createElement('div');
+                message.textContent = `Successfully dropped ${dragContext.tabIds.length} tabs!`;
+                message.style.color = 'green';
+                message.style.marginTop = '10px';
+                dropZone.appendChild(message);
+                
+                // In the real implementation, this would call the background service
+                // to move all the tabs at once
+            } else if (dragContext.kind === 'tab') {
+                console.log('Dropped single tab:', dragContext.tabId);
+                const message = document.createElement('div');
+                message.textContent = `Successfully dropped tab ${dragContext.tabId}!`;
+                message.style.color = 'blue';
+                message.style.marginTop = '10px';
+                dropZone.appendChild(message);
+            }
+        }
+    </script>
+</body>
+</html>

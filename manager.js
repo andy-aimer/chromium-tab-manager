@@ -67,14 +67,24 @@ document.addEventListener('dragleave', event => {
 });
 
 document.addEventListener('dragend', () => {
+  // Clean up multi-tab drag operation
+  if (dragContext?.kind === 'tabs') {
+    // Remove dragging class from all tabs
+    document.querySelectorAll('.tab-item.dragging').forEach(el => {
+      el.classList.remove('dragging');
+    });
+  } else {
+    // Single element drag operation (existing behavior)
+    const draggingElement = document.querySelector('.dragging');
+    if (draggingElement) {
+      draggingElement.classList.remove('dragging');
+    }
+  }
+  
   dragContext = null;
   windowDragContext = null;
   clearDropIndicator();
   clearWindowDropIndicator();
-  const draggingElement = document.querySelector('.dragging');
-  if (draggingElement) {
-    draggingElement.classList.remove('dragging');
-  }
 });
 
 document.addEventListener('drop', async event => {
@@ -757,6 +767,7 @@ const handleThrottledDragOver = throttle(event => {
     return;
   }
   const isGroup = dragContext.kind === 'group';
+  const isMultiTab = dragContext.kind === 'tabs';
   const rect = target.getBoundingClientRect();
   const before = event.clientY < rect.top + rect.height / 2;
 
@@ -778,9 +789,10 @@ const handleThrottledDragOver = throttle(event => {
       updateDropIndicator(target, before, true);
     }
   } else {
-    // Dragging a tab
+    // Dragging a tab or multiple tabs
     if (target.matches('.tab-item')) {
-      if (Number(target.dataset.tabId) === dragContext.tabId) {
+      // For multi-tab drag, don't prevent drop if one of the dragged tabs matches the target
+      if (!isMultiTab && Number(target.dataset.tabId) === dragContext.tabId) {
         clearDropIndicator();
         return;
       }
@@ -794,10 +806,44 @@ const handleThrottledDragOver = throttle(event => {
 
 function handleTabDragStart(event) {
   const { tabId, windowId, groupId } = event.currentTarget.dataset;
-  dragContext = { kind: 'tab', tabId: Number(tabId), windowId: Number(windowId), groupId: Number(groupId) };
-  event.dataTransfer?.setData('text/plain', tabId);
-  event.dataTransfer?.setDragImage(event.currentTarget, 0, 0);
-  event.currentTarget.classList.add('dragging');
+  
+  // Check if this is a multi-tab drag operation
+  const checkedTabIds = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"))
+    .map(input => Number(input.dataset.tabId))
+    .filter(Boolean);
+  
+  if (checkedTabIds.length > 1 && checkedTabIds.includes(Number(tabId))) {
+    // Multi-tab drag operation
+    dragContext = {
+      kind: 'tabs',
+      tabIds: checkedTabIds,
+      windowId: Number(windowId),
+      sourceWindowId: Number(windowId),
+      groupId: Number(groupId)
+    };
+    event.dataTransfer?.setData('text/plain', `tabs:${checkedTabIds.join(',')}`);
+    
+    // Highlight all checked tabs during drag and set drag count
+    checkedTabIds.forEach((checkedTabId, index) => {
+      const tabElement = document.querySelector(`.tab-item[data-tab-id='${checkedTabId}']`);
+      if (tabElement) {
+        tabElement.classList.add('dragging');
+        // Only show count on the first tab to avoid visual clutter
+        if (index === 0) {
+          tabElement.setAttribute('data-drag-count', checkedTabIds.length);
+        } else {
+          tabElement.removeAttribute('data-drag-count');
+        }
+      }
+    });
+  } else {
+    // Single tab drag operation (existing behavior)
+    dragContext = { kind: 'tab', tabId: Number(tabId), windowId: Number(windowId), groupId: Number(groupId) };
+    event.dataTransfer?.setData('text/plain', tabId);
+    event.dataTransfer?.setDragImage(event.currentTarget, 0, 0);
+    event.currentTarget.classList.add('dragging');
+    event.currentTarget.removeAttribute('data-drag-count');
+  }
 }
 
 function handleGroupChipDragStart(event) {
@@ -872,16 +918,16 @@ async function handleTabDrop(event) {
   event.preventDefault();
   clearDropIndicator();
 
-  const { kind, tabId, windowId: sourceWindowId, groupId: sourceGroupId } = dragContext;
+  const { kind, tabId, tabIds, windowId: sourceWindowId, groupId: sourceGroupId } = dragContext;
   const targetEl = event.target.closest('.tab-item, .group-header, .tab-list-inner.single');
   if (!targetEl) return;
 
   const targetWindowId = Number(targetEl.closest('.card').dataset.winId);
 
-  // Handle dropping a tab
-  if (kind === 'tab') {
-    const sourceTabEl = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
-    if (!sourceTabEl) return;
+  // Handle dropping a tab or multiple tabs
+  if (kind === 'tab' || kind === 'tabs') {
+    const isMultiTab = kind === 'tabs';
+    const tabIdsToMove = isMultiTab ? tabIds : [tabId];
 
     let newIndex = -1;
     let newGroupId = undefined;
@@ -892,26 +938,67 @@ async function handleTabDrop(event) {
       newIndex = Number(targetEl.dataset.index) + (before ? 0 : 1);
       const targetGroupId = targetEl.closest('.group-section')?.dataset.groupId;
       newGroupId = targetGroupId === undefined ? -1 : Number(targetGroupId);
-      moveElement(sourceTabEl.closest('ul'), targetEl.closest('ul'), before);
+      
+      // For multi-tab drag, we don't move elements in UI since we'll reload
+      if (!isMultiTab) {
+        const sourceTabEl = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
+        if (sourceTabEl) {
+          moveElement(sourceTabEl.closest('ul'), targetEl.closest('ul'), before);
+        }
+      }
     } else if (targetEl.matches('.group-header')) {
       newGroupId = Number(targetEl.dataset.groupId);
-      const list = targetEl.parentElement.querySelector('.tab-list-inner');
-      list.appendChild(sourceTabEl.closest('ul'));
+      // For multi-tab drag, we don't move elements in UI since we'll reload
+      if (!isMultiTab) {
+        const sourceTabEl = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
+        if (sourceTabEl) {
+          const list = targetEl.parentElement.querySelector('.tab-list-inner');
+          list.appendChild(sourceTabEl.closest('ul'));
+        }
+      }
     } else if (targetEl.matches('.tab-list-inner.single')) {
       const rect = targetEl.getBoundingClientRect();
       const before = event.clientY < rect.top + rect.height / 2;
       newIndex = Number(targetEl.dataset.index) + (before ? 0 : 1);
       newGroupId = -1;
-      moveElement(sourceTabEl.closest('ul'), targetEl, before);
+      
+      // For multi-tab drag, we don't move elements in UI since we'll reload
+      if (!isMultiTab) {
+        const sourceTabEl = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
+        if (sourceTabEl) {
+          moveElement(sourceTabEl.closest('ul'), targetEl, before);
+        }
+      }
     }
 
     try {
-      if (typeof newGroupId === 'number' && !Number.isNaN(newGroupId) && newGroupId !== sourceGroupId) {
-        await sendMessage({ type: 'assign-group', tabIds: [tabId], groupId: newGroupId, windowId: targetWindowId });
+      if (typeof newGroupId === 'number' && !Number.isNaN(newGroupId)) {
+        // Only change group if it's different from source group
+        const shouldChangeGroup = isMultiTab
+          ? tabIdsToMove.some(tabId => {
+              const tabElement = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
+              const currentGroupId = tabElement?.dataset.groupId ? Number(tabElement.dataset.groupId) : -1;
+              return currentGroupId !== newGroupId;
+            })
+          : newGroupId !== sourceGroupId;
+        
+        if (shouldChangeGroup) {
+          await sendMessage({ type: 'assign-group', tabIds: tabIdsToMove, groupId: newGroupId, windowId: targetWindowId });
+        }
       }
-      await sendMessage({ type: 'move-tab', tabId, windowId: targetWindowId, index: newIndex });
-      if (sourceWindowId !== targetWindowId) {
-        // update local cache to prevent full reload
+      
+      // Move tabs to new position
+      if (typeof newIndex === 'number' && !Number.isNaN(newIndex)) {
+        // For multi-tab drag, move all tabs to the same position
+        for (const currentTabId of tabIdsToMove) {
+          await sendMessage({ type: 'move-tab', tabId: currentTabId, windowId: targetWindowId, index: newIndex });
+          // Increment index for subsequent tabs to maintain order
+          newIndex++;
+        }
+      }
+      
+      // Update local cache for single tab moves between windows
+      if (!isMultiTab && sourceWindowId !== targetWindowId && typeof newIndex === 'number') {
         const sourceWindow = activeWindowsCache.find(w => w.id === sourceWindowId);
         const targetWindow = activeWindowsCache.find(w => w.id === targetWindowId);
         if (sourceWindow && targetWindow) {
@@ -920,6 +1007,7 @@ async function handleTabDrop(event) {
           targetWindow.tabs.splice(newIndex, 0, tabToMove);
         }
       }
+      
       await loadActiveWindows();
     } catch (err) {
       toast(err.message);
