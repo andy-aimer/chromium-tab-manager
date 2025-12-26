@@ -5,6 +5,7 @@ const windowTemplate = document.getElementById('window-template');
 const columnSelect = document.getElementById('column-count');
 const activeCountEl = document.getElementById('active-count');
 const saveMarkdownBtn = document.getElementById('save-markdown-btn');
+const closeTabsBtn = document.getElementById('close-tabs-btn');
 const traceHistoryToggle = document.getElementById('trace-history');
 
 let dragContext = null;
@@ -49,6 +50,29 @@ saveMarkdownBtn.addEventListener('click', async () => {
     saveMarkdownBtn.disabled = false;
   }
 });
+
+closeTabsBtn?.addEventListener('click', async () => {
+  const selectedTabIds = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"))
+    .map(input => Number(input.dataset.tabId))
+    .filter(Boolean);
+  
+  if (!selectedTabIds.length) {
+    toast('Select at least one tab to close.');
+    return;
+  }
+  
+  closeTabsBtn.disabled = true;
+  try {
+    await sendMessage({ type: 'close-tabs', tabIds: selectedTabIds });
+    toast(`${selectedTabIds.length} tab(s) closed.`);
+    await loadActiveWindows();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    closeTabsBtn.disabled = false;
+  }
+});
+
 traceHistoryToggle?.addEventListener('change', () => {
   applyTraceHistory();
 });
@@ -197,17 +221,26 @@ function createWindowCard(win) {
   const actions = card.querySelector('.card-actions');
   actions.replaceChildren();
 
+  // Create save markdown icon button
   const saveBtn = document.createElement('button');
-  saveBtn.textContent = 'Save Markdown';
+  saveBtn.className = 'icon-button';
+  saveBtn.setAttribute('aria-label', 'Save Markdown');
+  saveBtn.textContent = '📥';
   saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = true;
     try {
-      const tabIds = (win.tabs || []).map(tab => tab.id).filter(Boolean);
-      if (!tabIds.length) {
-        toast('No tabs to save in this window.');
-      } else {
-        await saveMarkdownForTabIds(tabIds);
+      // Only get checked tabs within this specific window
+      const windowTabIds = (win.tabs || []).map(tab => tab.id).filter(Boolean);
+      const checkedTabIds = Array.from(card.querySelectorAll("input[data-select-kind='tab']:checked"))
+        .map(input => Number(input.dataset.tabId))
+        .filter(tabId => windowTabIds.includes(tabId));
+      
+      if (!checkedTabIds.length) {
+        toast('Select at least one tab in this window to save.');
+        return;
       }
+      
+      await saveMarkdownForTabIds(checkedTabIds);
     } catch (err) {
       toast(err.message);
     } finally {
@@ -215,7 +248,82 @@ function createWindowCard(win) {
     }
   });
 
-  actions.append(saveBtn);
+  // Create close tabs icon button
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'icon-button danger';
+  closeBtn.setAttribute('aria-label', 'Close Selected Tabs');
+  closeBtn.textContent = '🗑️';
+  closeBtn.addEventListener('click', async () => {
+    closeBtn.disabled = true;
+    try {
+      // Only get checked tabs within this specific window
+      const windowTabIds = (win.tabs || []).map(tab => tab.id).filter(Boolean);
+      const checkedTabIds = Array.from(card.querySelectorAll("input[data-select-kind='tab']:checked"))
+        .map(input => Number(input.dataset.tabId))
+        .filter(tabId => windowTabIds.includes(tabId));
+      
+      if (!checkedTabIds.length) {
+        toast('Select at least one tab in this window to close.');
+        return;
+      }
+      
+      await sendMessage({ type: 'close-tabs', tabIds: checkedTabIds });
+      toast(`${checkedTabIds.length} tab(s) closed.`);
+      await loadActiveWindows();
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      closeBtn.disabled = false;
+    }
+  });
+
+  // Create group tabs icon button
+  const groupBtn = document.createElement('button');
+  groupBtn.className = 'icon-button';
+  groupBtn.setAttribute('aria-label', 'Group Selected Tabs');
+  groupBtn.textContent = '🏷️';
+  groupBtn.addEventListener('click', async () => {
+    groupBtn.disabled = true;
+    try {
+      // Only get checked tabs within this specific window
+      const windowTabIds = (win.tabs || []).map(tab => tab.id).filter(Boolean);
+      const checkedTabIds = Array.from(card.querySelectorAll("input[data-select-kind='tab']:checked"))
+        .map(input => Number(input.dataset.tabId))
+        .filter(tabId => windowTabIds.includes(tabId));
+      
+      if (!checkedTabIds.length) {
+        toast('Select at least one tab in this window to group.');
+        return;
+      }
+      
+      if (checkedTabIds.length === 1) {
+        toast('Select at least 2 tabs to create a group.');
+        return;
+      }
+      
+      // Get a random color for the new group
+      const colors = ['blue', 'red', 'green', 'yellow', 'pink', 'purple', 'cyan', 'orange'];
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      
+      await sendMessage({
+        type: 'assign-group',
+        tabIds: checkedTabIds,
+        groupId: 'new',
+        windowId: win.id,
+        title: 'New Group',
+        color: randomColor
+      });
+      
+      toast(`${checkedTabIds.length} tab(s) grouped.`);
+      await loadActiveWindows();
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      groupBtn.disabled = false;
+    }
+  });
+
+  actions.append(saveBtn, groupBtn, closeBtn);
   header.append(windowCheckbox);
   windowCheckbox.addEventListener('change', () => {
     const tabCheckboxes = card.querySelectorAll("input[data-select-kind='tab']");

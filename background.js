@@ -450,6 +450,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         respond(true);
         break;
+      case 'close-tabs': {
+        const tabIds = Array.isArray(message.tabIds) ? message.tabIds : [];
+        if (!tabIds.length) {
+          respond([]);
+          break;
+        }
+        const results = [];
+        for (const tabId of tabIds) {
+          try {
+            await chrome.tabs.remove(tabId);
+            results.push({ tabId, success: true });
+          } catch (err) {
+            results.push({ tabId, success: false, error: err.message || String(err) });
+          }
+        }
+        respond(results);
+        break;
+      }
       default:
         respond(new Error('Unknown message type'), true);
         break;
