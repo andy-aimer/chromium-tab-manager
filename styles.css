@@ -67,18 +67,17 @@ body {
   font-weight: 600;
 }
 .icon-button {
-  padding: .2rem;
+  padding: .1rem;
   font-size: 0.8rem;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 0.9rem;
+  height: 0.9rem;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  margin-left: .3rem;
+  border: 0px solid var(--border);
+  margin-left: .2rem;
   cursor: pointer;
 }
 
@@ -131,33 +130,31 @@ section {
 menu button {
   border: none;
   border-radius: 999px;
-  padding: .45rem 1rem;
+  padding: .2rem 0.3rem;
   margin-left: .5rem;
   cursor: pointer;
-  background: var(--card-bg);
+  background: transparent;
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 0px solid var(--border);
   transition: background .2s ease;
 }
 
 
 button.primary {
-  background: var(--accent);
   color: #fff;
   border-color: transparent;
 }
 
 button.danger {
   color: #fff;
-  background: var(--danger);
   border-color: transparent;
 }
 
 .card {
   border: 1px solid var(--border);
 
-  border-radius: 12px;
-  box-shadow: 0 20px 45px rgba(122, 122, 122, 0.722);
+  border-radius: 11px;
+  box-shadow: 0 12px 45px rgba(122, 122, 122, 0.722);
   
   padding-bottom: 0.6rem;
   padding-top: 0.3rem;
@@ -167,7 +164,7 @@ button.danger {
 }
 
 .card.dragging {
-  outline: 3px solid #7dd3fc;
+  outline: 2px solid #7dd3fc;
   outline-offset: -2px;
 }
 
@@ -202,8 +199,8 @@ button.danger {
 .select-checkbox {
   margin-left: auto;
   order: 3;
-  width: 1rem;
-  height: 1rem;
+  width: 0.9rem;
+  height: 0.9rem;
   flex: 0 0 1rem;
 }
 
