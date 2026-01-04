@@ -166,6 +166,11 @@ button.danger {
   margin: 0.6rem;
   background: #f1f5f9;
   break-inside: avoid;
+
+  /* UI Virtualization */
+  content-visibility: auto;
+  contain-intrinsic-size: 100px 300px;
+  /* Estimate width/height to reduce layout shift */
 }
 
 .card.dragging {
