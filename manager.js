@@ -237,7 +237,7 @@ function activateInlineRename(targetEl, currentValue, onSave) {
 }
 
 async function loadActiveWindows() {
-  const windows = await sendMessage({ type: 'get-active' });
+  const windows = await sendMessage({ type: 'get-active-windows-light' });
   const order = await loadWindowOrder();
   const sortedWindows = sortWindowsByOrder(windows, order);
   activeWindowsCache = sortedWindows;
@@ -266,7 +266,7 @@ function createWindowCard(win) {
     win.title = updatedWindow.title;
   }));
   const metaEl = card.querySelector('.meta');
-  metaEl.textContent = `${win.tabs.length} tab(s)`;
+  metaEl.textContent = `... tabs`; // Placeholder
 
   const actions = card.querySelector('.card-actions');
   actions.replaceChildren();
@@ -389,15 +389,18 @@ function createWindowCard(win) {
 
   const container = card.querySelector('.tab-list');
   container.classList.add('tab-collection');
-  container.replaceChildren();
+  container.replaceChildren(); // Empty for now
   const toggleButtons = card.querySelectorAll('.toggle-tabs');
   toggleButtons.forEach(toggleBtn => {
     toggleBtn.type = 'button';
-    toggleBtn.addEventListener('click', event => {
+    toggleBtn.classList.add('collapsed');
+    toggleBtn.textContent = '▸';
+    toggleBtn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
       const targetContainer = card.querySelector('.tab-list');
       if (!targetContainer) return;
+
       const collapsed = targetContainer.hasAttribute('hidden');
       if (collapsed) {
         targetContainer.removeAttribute('hidden');
@@ -405,6 +408,10 @@ function createWindowCard(win) {
           btn.classList.remove('collapsed');
           btn.textContent = '▾';
         });
+        // Load content if it's not already loaded
+        if (!targetContainer.dataset.loaded) {
+          loadWindowDetails(win.id, card);
+        }
       } else {
         targetContainer.setAttribute('hidden', '');
         toggleButtons.forEach(btn => {
@@ -415,19 +422,43 @@ function createWindowCard(win) {
     });
   });
 
-  buildWindowSections(win).forEach(section => {
-    if (section.type === 'group') {
-      container.appendChild(renderGroupSection(win, section.group, section.tabs));
-    } else if (section.type === 'tab') {
-      container.appendChild(renderSingleTabRow(win, section.tab));
-    }
-  });
-
   container.dataset.windowId = win.id;
   container.addEventListener('drop', handleGroupContainerDrop);
 
   return frag;
 }
+
+async function loadWindowDetails(windowId, card) {
+  const container = card.querySelector('.tab-list');
+  container.textContent = 'Loading...';
+  try {
+    const win = await sendMessage({ type: 'get-window-details', windowId });
+
+    // Update the main cache
+    const cachedWindow = activeWindowsCache.find(w => w.id === windowId);
+    if (cachedWindow) {
+      cachedWindow.tabs = win.tabs;
+      cachedWindow.groups = win.groups;
+    }
+    
+    const metaEl = card.querySelector('.meta');
+    metaEl.textContent = `${win.tabs.length} tab(s)`;
+
+    container.innerHTML = '';
+    buildWindowSections(win).forEach(section => {
+      if (section.type === 'group') {
+        container.appendChild(renderGroupSection(win, section.group, section.tabs));
+      } else if (section.type === 'tab') {
+        container.appendChild(renderSingleTabRow(win, section.tab));
+      }
+    });
+    container.dataset.loaded = 'true';
+    applyTraceHistory();
+  } catch (err) {
+    container.textContent = `Error: ${err.message}`;
+  }
+}
+
 
 async function loadWindowOrder() {
   try {
@@ -1261,6 +1292,7 @@ async function handleTabDrop(event) {
       }
 
       await loadActiveWindows();
+      selectTabs(tabIdsToMove);
     } catch (err) {
       toast(err.message);
       await loadActiveWindows();
@@ -1330,6 +1362,7 @@ async function handleGroupDrop(event) {
       await sendMessage({ type: 'assign-group', tabIds: [dragContext.tabId], groupId: -1, windowId });
     }
     await loadActiveWindows();
+    selectTabs([dragContext.tabId]);
   } catch (err) {
     toast(err.message);
   } finally {
@@ -1392,6 +1425,7 @@ async function handleGroupSectionDrop(event) {
         index: targetIndex,
       });
       await loadActiveWindows();
+      selectTabs([tabId]);
     } catch (err) {
       toast(err.message);
       await loadActiveWindows();
@@ -1456,6 +1490,7 @@ async function handleGroupContainerDrop(event) {
   try {
     await sendMessage({ type: 'move-group', groupId: dragContext.groupId, windowId, index: -1 });
     await loadActiveWindows();
+    selectTabs([dragContext.tabId]);
   } catch (err) {
     toast(err.message);
   } finally {
@@ -1539,6 +1574,18 @@ async function saveMarkdownForTabIds(tabIds) {
   } else {
     toast(`Saved ${successes} markdown file(s).`);
   }
+}
+
+function selectTabs(tabIds) {
+  if (!tabIds || !tabIds.length) return;
+  tabIds.forEach(id => {
+    const checkbox = document.querySelector(`input[data-tab-id='${id}']`);
+    if (checkbox) {
+      checkbox.checked = true;
+      // Trigger change event to update UI (selected class)
+      checkbox.dispatchEvent(new Event('change'));
+    }
+  });
 }
 
 
@@ -1645,6 +1692,7 @@ async function handleContextMenu(event) {
             tabIds: selectedTabIds
           });
           await loadActiveWindows();
+          selectTabs(selectedTabIds);
         }
       });
 
@@ -1669,6 +1717,7 @@ async function handleContextMenu(event) {
               tabIds: selectedTabIds
             });
             await loadActiveWindows();
+            selectTabs(selectedTabIds);
           }
         });
       }

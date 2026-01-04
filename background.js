@@ -336,6 +336,37 @@ async function getActiveWindows() {
   });
 }
 
+async function getActiveWindowsLight() {
+  const windows = await chrome.windows.getAll({ populate: false, windowTypes: ['normal'] });
+  const titles = await loadWindowTitles();
+  return windows.map(win => ({
+    id: win.id,
+    title: titles[win.id] || win.title || 'Window',
+    focused: win.focused,
+    tabs: [],
+    groups: [],
+  }));
+}
+
+async function getWindowDetails(windowId) {
+  const win = await chrome.windows.get(windowId, { populate: true });
+  const groups = await fetchTabGroups([win]);
+  const tabs = (win.tabs || []).map((tab, index) => serializeTab(tab, index));
+  const windowGroups = groups
+    .filter(group => group.windowId === win.id)
+    .map(group => ({
+      id: group.id,
+      title: group.title || 'Group',
+      color: group.color,
+      collapsed: group.collapsed,
+    }));
+  return {
+    id: win.id,
+    tabs,
+    groups: windowGroups,
+  };
+}
+
 function serializeTab(tab, index) {
   return {
     id: tab.id,
@@ -650,6 +681,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message?.type) {
       case 'get-active':
         respond(await getActiveWindows());
+        break;
+      case 'get-active-windows-light':
+        respond(await getActiveWindowsLight());
+        break;
+      case 'get-window-details':
+        respond(await getWindowDetails(message.windowId));
         break;
       case 'rename-window': {
         const { windowId, title } = message;
