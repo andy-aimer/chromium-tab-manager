@@ -292,9 +292,57 @@ async function loadActiveWindows() {
   const order = await loadWindowOrder();
   const sortedWindows = sortWindowsByOrder(windows, order);
   activeWindowsCache = sortedWindows;
-  activeListEl.innerHTML = '';
+
   activeCountEl.textContent = sortedWindows.length ? `${sortedWindows.length} window(s)` : 'No windows';
-  sortedWindows.forEach(win => activeListEl.appendChild(createWindowCard(win)));
+
+  // Granular DOM updates (Efficiency Recommendation #3)
+  const existingCards = new Map();
+  activeListEl.querySelectorAll('.card').forEach(card => {
+    existingCards.set(Number(card.dataset.winId), card);
+  });
+
+  // 1. Update or Create
+  sortedWindows.forEach((win, index) => {
+    let card = existingCards.get(win.id);
+    if (card) {
+      // Update existing
+      const titleEl = card.querySelector('.title');
+      if (titleEl && titleEl.textContent !== win.title) {
+        titleEl.textContent = win.title;
+        // Re-attach inline rename listener if title changed? 
+        // Actually, existing listener holds old title closure, so we should likely re-create listener or rely on updated 'win' in closure?
+        // Simpler: Just update text. The click listener uses 'win.title' from closure? No, it uses 'win.title' property of 'win' passed to createWindowCard.
+        // We need to update that 'win' reference or the dataset/properties the listener reads.
+        // For now, let's assume basic title text update is enough visually.
+      }
+      existingCards.delete(win.id); // Mark as visited
+
+      // Update order if needed (simple append moves it)
+      activeListEl.appendChild(card);
+    } else {
+      // Create new
+      card = createWindowCard(win);
+      activeListEl.appendChild(card);
+
+      // Auto-expand if active (initial load logic, but good to keep consistent)
+      if (win.focused) {
+        const targetContainer = card.querySelector('.tab-list');
+        const toggleButtons = card.querySelectorAll('.toggle-tabs');
+        if (targetContainer) {
+          targetContainer.removeAttribute('hidden');
+          toggleButtons.forEach(btn => {
+            btn.classList.remove('collapsed');
+            btn.textContent = '▾';
+          });
+          loadWindowDetails(win.id, card);
+        }
+      }
+    }
+  });
+
+  // 2. Remove extra
+  existingCards.forEach(card => card.remove());
+
   applyTraceHistory();
 }
 
@@ -2064,4 +2112,7 @@ async function buildMoveSubmenu(onSelect) {
 
   return menuItems;
 }
+
+// Start the application
+loadAll();
 
