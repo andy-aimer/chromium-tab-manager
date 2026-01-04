@@ -11,7 +11,9 @@ const redoBtn = document.getElementById('redo-btn');
 const traceHistoryToggle = document.getElementById('trace-history');
 
 let dragContext = null;
+let dragContext = null;
 let activeWindowsCache = [];
+let activeWindowMap = new Map();
 let windowDragContext = null;
 const WINDOW_ORDER_KEY = 'tab-manager:window-order';
 
@@ -100,10 +102,11 @@ saveSessionBtn.addEventListener('click', async () => {
     // If cache is empty, we might need to load it (edge case), but usually it's there.
     if (!activeWindowsCache.length) {
       activeWindowsCache = await sendMessage({ type: 'get-active' });
+      activeWindowMap = new Map(activeWindowsCache.map(w => [w.id, w]));
     }
 
     windowIds.forEach(wid => {
-      const win = activeWindowsCache.find(w => w.id === wid);
+      const win = activeWindowMap.get(wid);
       if (win && win.tabs) {
         allTabIds.push(...win.tabs.map(t => t.id));
       }
@@ -291,7 +294,9 @@ async function loadActiveWindows() {
   const windows = await sendMessage({ type: 'get-active-windows-light' });
   const order = await loadWindowOrder();
   const sortedWindows = sortWindowsByOrder(windows, order);
+  const sortedWindows = sortWindowsByOrder(windows, order);
   activeWindowsCache = sortedWindows;
+  activeWindowMap = new Map(sortedWindows.map(w => [w.id, w]));
 
   activeCountEl.textContent = sortedWindows.length ? `${sortedWindows.length} window(s)` : 'No windows';
 
@@ -610,8 +615,8 @@ function persistWindowOrderFromDom() {
     .map(card => Number(card.dataset.winId))
     .filter(Boolean);
   saveWindowOrder(order);
-  const windowById = new Map(activeWindowsCache.map(win => [win.id, win]));
-  const reordered = order.map(id => windowById.get(id)).filter(Boolean);
+  // activeWindowMap is already efficient
+  const reordered = order.map(id => activeWindowMap.get(id)).filter(Boolean);
   const missing = activeWindowsCache.filter(win => !order.includes(win.id));
   activeWindowsCache = reordered.concat(missing);
 }
