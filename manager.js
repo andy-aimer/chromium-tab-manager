@@ -11,7 +11,6 @@ const redoBtn = document.getElementById('redo-btn');
 const traceHistoryToggle = document.getElementById('trace-history');
 
 let dragContext = null;
-let dragContext = null;
 let activeWindowsCache = [];
 let activeWindowMap = new Map();
 let windowDragContext = null;
@@ -292,7 +291,6 @@ function activateInlineRename(targetEl, currentValue, onSave) {
 
 async function loadActiveWindows() {
   const sortedWindows = await sendMessage({ type: 'get-ordered-windows-light' });
-  const sortedWindows = sortWindowsByOrder(windows, order);
   activeWindowsCache = sortedWindows;
   activeWindowMap = new Map(sortedWindows.map(w => [w.id, w]));
 
