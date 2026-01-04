@@ -6,6 +6,8 @@ const columnSelect = document.getElementById('column-count');
 const activeCountEl = document.getElementById('active-count');
 const saveMarkdownBtn = document.getElementById('save-markdown-btn');
 const closeTabsBtn = document.getElementById('close-tabs-btn');
+const undoBtn = document.getElementById('undo-btn');
+const redoBtn = document.getElementById('redo-btn');
 const traceHistoryToggle = document.getElementById('trace-history');
 
 let dragContext = null;
@@ -14,10 +16,58 @@ let windowDragContext = null;
 const WINDOW_ORDER_KEY = 'tab-manager:window-order';
 
 refreshBtn.addEventListener('click', () => loadAll());
-columnSelect.addEventListener('change', e => {
-  document.documentElement.style.setProperty('--column-count', e.target.value);
+
+// Undo/Redo Logic
+async function triggerUndo() {
+  try {
+    await sendMessage({ type: 'undo' });
+    await loadActiveWindows();
+    toast('Undone last action');
+  } catch (err) {
+    if (err.message) toast(err.message);
+  }
+}
+
+async function triggerRedo() {
+  try {
+    await sendMessage({ type: 'redo' });
+    await loadActiveWindows();
+    toast('Redone last action');
+  } catch (err) {
+    if (err.message) toast(err.message);
+  }
+}
+
+undoBtn?.addEventListener('click', triggerUndo);
+redoBtn?.addEventListener('click', triggerRedo);
+
+document.addEventListener('keydown', event => {
+  if ((event.metaKey || event.ctrlKey) && event.key === 'z') {
+    event.preventDefault();
+    if (event.shiftKey) {
+      triggerRedo();
+    } else {
+      triggerUndo();
+    }
+  }
 });
-document.documentElement.style.setProperty('--column-count', columnSelect.value);
+const COLUMN_COUNT_KEY = 'tab-manager:column-count';
+
+columnSelect.addEventListener('change', e => {
+  const val = e.target.value;
+  document.documentElement.style.setProperty('--column-count', val);
+  chrome.storage.local.set({ [COLUMN_COUNT_KEY]: val });
+});
+
+// Load saved column count
+chrome.storage.local.get([COLUMN_COUNT_KEY]).then(({ [COLUMN_COUNT_KEY]: saved }) => {
+  if (saved) {
+    columnSelect.value = saved;
+    document.documentElement.style.setProperty('--column-count', saved);
+  } else {
+    document.documentElement.style.setProperty('--column-count', columnSelect.value);
+  }
+});
 saveAllBtn.addEventListener('click', async () => {
   saveAllBtn.disabled = true;
   try {
@@ -685,6 +735,11 @@ function createTabItem(win, tab) {
     hideTabTooltip();
   });
   tabCheckbox.addEventListener('change', () => {
+    if (tabCheckbox.checked) {
+      item.classList.add('selected');
+    } else {
+      item.classList.remove('selected');
+    }
     const section = item.closest('.group-section');
     if (section) {
       updateGroupCheckboxState(section);
@@ -694,6 +749,10 @@ function createTabItem(win, tab) {
       updateWindowCheckboxState(card);
     }
   });
+  // Initial state
+  if (tabCheckbox.checked) {
+    item.classList.add('selected');
+  }
 
   return item;
 }
@@ -1546,7 +1605,7 @@ async function handleContextMenu(event) {
     });
 
     items.push({
-      label: `Selected: ${selectedTabsCount} tabs`,
+      label: `Selected ${selectedTabsCount} tabs`,
       info: true,
       meta: `across ${distinctGroups.size} group(s) in ${distinctWindows.size} window(s)`
     });
@@ -1622,10 +1681,7 @@ async function handleContextMenu(event) {
       const tabId = Number(targetTabItem.dataset.tabId);
       const winId = Number(targetTabItem.dataset.windowId);
 
-      items.push({
-        label: 'View tab',
-        action: async () => sendMessage({ type: 'focus-tab', tabId })
-      });
+
 
       // Move tab submenu
       const moveSubmenu = await buildMoveSubmenu((targetWinId, targetGroupId) => {
@@ -1679,10 +1735,21 @@ async function handleContextMenu(event) {
 
       // Change Group Color
       const colors = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+      // Find current color
+      const win = activeWindowsCache.find(w => w.id === winId);
+      let currentColor = '';
+      if (win) {
+        const group = win.groups.find(g => g.id === groupId);
+        if (group) currentColor = group.color;
+      }
+
       items.push({
-        label: 'Change Group Color',
+        label: 'Color',
+        submenuLayout: 'grid',
         submenu: colors.map(color => ({
           label: color.charAt(0).toUpperCase() + color.slice(1),
+          colorCode: colorToHex(color),
+          active: color === currentColor, // Add active flag
           action: async () => {
             await sendMessage({
               type: 'update-group',
@@ -1766,51 +1833,80 @@ function renderContextMenu(items, x, y) {
 
   contextMenu.innerHTML = '';
 
-  items.forEach(item => {
-    const el = document.createElement('div');
-    el.className = 'menu-item';
-    if (item.danger) el.classList.add('danger');
-    if (item.info) el.classList.add('info');
+  function buildMenu(menuItems, parent) {
+    menuItems.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'menu-item';
 
-    const label = document.createElement('span');
-    label.textContent = item.label;
-    el.appendChild(label);
+      if (item.info) {
+        el.classList.add('info');
+        el.innerHTML = `<strong>${item.label}</strong><br><span class="meta">${item.meta}</span>`;
+        parent.appendChild(el);
+        return;
+      }
 
-    if (item.meta) {
-      const meta = document.createElement('span');
-      meta.className = 'meta';
-      meta.textContent = item.meta;
-      el.appendChild(meta);
-    }
+      if (item.colorCode) {
+        // Render as color swatch
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.backgroundColor = item.colorCode;
+        swatch.title = item.label; // Tooltip for accessibility
 
-    if (item.submenu) {
-      el.classList.add('has-submenu');
-      const sub = document.createElement('div');
-      sub.className = 'submenu';
-      item.submenu.forEach(subItem => {
-        const subEl = document.createElement('div');
-        subEl.className = 'menu-item';
-        subEl.textContent = subItem.label;
-        subEl.addEventListener('click', (e) => {
+        if (item.active) {
+          swatch.style.boxShadow = 'inset 0 0 0 2px white, 0 0 0 2px var(--text)';
+          swatch.style.transform = 'scale(1.1)';
+        }
+
+        el.appendChild(swatch);
+      } else {
+        el.textContent = item.label;
+        if (item.textColor) {
+          el.style.color = item.textColor;
+          el.style.fontWeight = '600';
+        }
+        if (item.bold) {
+          el.style.fontWeight = '700';
+        }
+      }
+
+      if (item.danger) el.classList.add('danger');
+      if (item.submenu) {
+        el.classList.add('has-submenu');
+        el.classList.add('has-submenu');
+        // Arrow is handled by CSS ::after on .has-submenu to keep it clean
+        // Removing the manual span creation if we use CSS ::after 
+        // OR we can keep the span but make it empty and styled.
+        // Let's use the pure CSS approach usually used in the styles I see.
+        // Checking styles.css, I see: #context-menu .menu-item.has-submenu::after { content: '▸'; ... }
+        // BUT wait, line 1866 created a span. 
+        // Existing styles.css line 639 ALREADY has a rule for ::after with content '▸'.
+        // So we might have DOUBLE arrows right now? '▶' from JS and '▸' from CSS?
+        // Let's remove the JS arrow creation entirely and rely on CSS.
+
+
+        const sub = document.createElement('div');
+        sub.className = 'submenu';
+        if (item.submenuLayout === 'grid') {
+          sub.classList.add('grid-layout');
+        }
+        buildMenu(item.submenu, sub);
+        el.appendChild(sub);
+      }
+
+      if (item.action) {
+        el.addEventListener('click', (e) => {
           e.stopPropagation();
+          // Normally close menu on action
+          item.action();
           contextMenu.style.display = 'none';
-          if (subItem.action) subItem.action();
         });
-        sub.appendChild(subEl);
-      });
-      el.appendChild(sub);
-    } else if (item.action) {
-      el.addEventListener('click', (e) => {
-        // If it has submenu, we might not want to close immediately or trigger action?
-        // Usually context menu items execute and close.
-        e.stopPropagation(); // prevent document click?
-        contextMenu.style.display = 'none';
-        item.action();
-      });
-    }
+      }
 
-    contextMenu.appendChild(el);
-  });
+      parent.appendChild(el);
+    });
+  }
+
+  buildMenu(items, contextMenu);
 
   contextMenu.style.left = `${x}px`;
   contextMenu.style.top = `${y}px`;
@@ -1832,10 +1928,11 @@ async function buildMoveSubmenu(onSelect) {
   const windows = activeWindowsCache || [];
   const menuItems = [];
 
-  windows.forEach(win => {
+  windows.forEach((win, index) => {
     // Option to move to Window itself
     menuItems.push({
-      label: `Window: ${win.title}`,
+      label: `[${index + 1}] ${win.title}`,
+      bold: true,
       action: () => onSelect(win.id)
     });
 
@@ -1843,7 +1940,8 @@ async function buildMoveSubmenu(onSelect) {
     if (win.groups && win.groups.length) {
       win.groups.forEach(g => {
         menuItems.push({
-          label: `  ↳ Group: ${g.title}`,
+          label: `  ↳ ${g.title}`,
+          textColor: colorToHex(g.color),
           action: () => onSelect(win.id, g.id)
         });
       });

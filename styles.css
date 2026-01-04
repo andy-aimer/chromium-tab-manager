@@ -1,4 +1,7 @@
-[hidden]{display:none !important;}
+[hidden] {
+  display: none !important;
+}
+
 :root {
   color-scheme: light dark;
   --bg: #f8f9fd;
@@ -28,44 +31,46 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  padding-bottom: 1rem;
+  padding-bottom: .5rem;
   border-bottom: 1px solid var(--border);
   margin-bottom: 1rem;
 }
 
-.section-toolbar > div:first-child {
-  flex: 1;
+.header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.header-left h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.header-center {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
-  flex: 1;
-}
-
-.trace-toggle {
-  display: inline-flex;
   align-items: center;
-  gap: .4rem;
-  font-size: .9rem;
-  color: var(--muted);
-  margin-right: .75rem;
+  gap: 0.5rem;
 }
 
-.trace-toggle input {
-  margin: 0;
-}
-
-.header-center {
-  flex: 1;
-  display: flex;
-  justify-content: center;
+.divider-v {
+  width: 1px;
+  height: 1.5rem;
+  background: var(--border);
+  margin: 0 0.5rem;
 }
 
 .header-center button {
   padding: .6rem 1.5rem;
   font-weight: 600;
 }
+
 .icon-button {
   padding: .1rem;
   font-size: 0.8rem;
@@ -155,7 +160,7 @@ button.danger {
 
   border-radius: 11px;
   box-shadow: 0 12px 45px rgba(122, 122, 122, 0.722);
-  
+
   padding-bottom: 0.6rem;
   padding-top: 0.3rem;
   margin: 0.6rem;
@@ -208,7 +213,7 @@ button.danger {
   margin-left: auto;
   order: 3;
   width: 0.9rem;
-  height:0.9rem;
+  height: 0.9rem;
   flex: 0 0 1rem;
 }
 
@@ -220,7 +225,7 @@ button.danger {
   border-bottom: 1px solid #aaaaaa;
   border-left: 0px solid #f50606;
   border-right: 0px solid #f50606;
-  
+
   padding-top: .05rem;
   padding-right: .2rem;
   padding-bottom: .05rem;
@@ -239,11 +244,21 @@ button.danger {
 }
 
 .tab-item.dragging {
-  opacity: .6;
+  opacity: 1;
+  /* Keep fully opaque as requested, or maybe slight? "dragged items still be checked" - user wants visibility */
+  opacity: 0.9;
   cursor: grabbing;
-  border: 2px solid #7dd3fc;
-  background: rgba(125, 211, 252, 0.2);
+  border: 1px solid #3b82f6;
+  /* bright-blue */
+  background: #dbeafe;
+  /* bright-light-blue */
   position: relative;
+  /* Ensure it looks checked */
+}
+
+.tab-item.selected {
+  background: #dbeafe;
+  /* bright-light-blue */
 }
 
 .tab-item.dragging::after {
@@ -299,15 +314,15 @@ menu {
   margin-left: 0.72rem;
   margin-right: 0.72rem;
   border-top: 1px solid #aaaaaa;
-  
- 
+
+
 }
 
 .group-section {
   border: 3px solid var(--group-color, var(--border));
-  border-radius: 0; 
+  border-radius: 0;
   padding: 0;
- 
+
 
 }
 
@@ -339,7 +354,7 @@ menu {
   font-size: .8rem;
   cursor: pointer;
   margin-left: 0;
-  
+
 }
 
 .group-count {
@@ -362,19 +377,19 @@ menu {
   padding: 0;
   margin: 0;
   display: flex;
-  flex-direction: column; 
+  flex-direction: column;
 
 }
 
 .tab-list-inner.single {
   background-color: transparent;
-    
-    border-left: 1px solid #aaaaaa;
-    border-right: 1px solid #aaaaaa;
+
+  border-left: 1px solid #aaaaaa;
+  border-right: 1px solid #aaaaaa;
 }
 
 .tab-list-inner .tab-item {
- 
+
   cursor: grab;
   position: relative;
 }
@@ -401,7 +416,7 @@ menu {
 .tab-item.pinned {
   opacity: .7;
   cursor: not-allowed;
- 
+
 }
 
 .tab-item.pinned::before {
@@ -538,15 +553,18 @@ menu {
 .compact-header {
   gap: .5rem;
 }
+
 .compact-header .title,
 .compact-header .meta {
   display: inline-flex;
   margin: 0;
 }
+
 .compact-header .meta {
   padding-left: .75rem;
   color: var(--muted);
 }
+
 #active-list.card-columns {
   column-count: var(--column-count);
   column-gap: 1rem;
@@ -573,6 +591,7 @@ menu {
   margin-left: .35rem;
   order: 4;
 }
+
 .toggle-tabs.collapsed {
   transform: rotate(-90deg);
 }
@@ -617,16 +636,21 @@ menu {
   padding-bottom: 6px;
   margin-bottom: 4px;
 }
+
 #context-menu .menu-item.info:hover {
-    background: transparent;
+  background: transparent;
 }
 
 #context-menu .menu-item .meta {
-    font-size: 0.8rem;
-    color: var(--muted);
-    font-weight: normal;
-    display: block;
-    margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: normal;
+  display: block;
+  margin-top: 2px;
+}
+
+#context-menu .menu-item.has-submenu {
+  font-weight: 600;
 }
 
 #context-menu .divider {
@@ -656,10 +680,42 @@ menu {
   margin-left: 4px;
 }
 
-#context-menu .menu-item:hover > .submenu {
+#context-menu .menu-item:hover>.submenu {
   display: block;
 }
 
 #context-menu .submenu .menu-item {
-    font-size: 0.85rem;
+  font-size: 0.85rem;
+}
+
+/* Color Picker Grid in Context Menu */
+.submenu.grid-layout {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 8px;
+  min-width: 250px;
+}
+
+.submenu.grid-layout .menu-item {
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  margin: auto;
+}
+
+.submenu.grid-layout .menu-item:hover {
+  background-color: transparent !important;
+  transform: scale(1.2);
+  box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--primary-color);
+}
+
+.color-swatch {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
