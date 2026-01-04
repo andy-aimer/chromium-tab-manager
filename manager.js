@@ -291,9 +291,7 @@ function activateInlineRename(targetEl, currentValue, onSave) {
 }
 
 async function loadActiveWindows() {
-  const windows = await sendMessage({ type: 'get-active-windows-light' });
-  const order = await loadWindowOrder();
-  const sortedWindows = sortWindowsByOrder(windows, order);
+  const sortedWindows = await sendMessage({ type: 'get-ordered-windows-light' });
   const sortedWindows = sortWindowsByOrder(windows, order);
   activeWindowsCache = sortedWindows;
   activeWindowMap = new Map(sortedWindows.map(w => [w.id, w]));

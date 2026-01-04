@@ -328,6 +328,23 @@ async function getActiveWindows() {
   });
 }
 
+async function getOrderedActiveWindowsLight() {
+  const windows = await getActiveWindowsLight();
+  const { [WINDOW_ORDER_KEY]: order = [] } = await chrome.storage.local.get(WINDOW_ORDER_KEY);
+
+  if (!order.length) return windows;
+
+  const indexById = new Map(order.map((id, index) => [id, index]));
+  return windows.sort((a, b) => {
+    const aIndex = indexById.get(a.id);
+    const bIndex = indexById.get(b.id);
+    if (aIndex === undefined && bIndex === undefined) return 0;
+    if (aIndex === undefined) return 1;
+    if (bIndex === undefined) return -1;
+    return aIndex - bIndex;
+  });
+}
+
 async function getActiveWindowsLight() {
   const windows = await chrome.windows.getAll({ populate: false, windowTypes: ['normal'] });
   const titles = await loadWindowTitles();
@@ -676,6 +693,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         break;
       case 'get-active-windows-light':
         respond(await getActiveWindowsLight());
+        break;
+      case 'get-ordered-windows-light':
+        respond(await getOrderedActiveWindowsLight());
         break;
       case 'get-window-details':
         respond(await getWindowDetails(message.windowId));
