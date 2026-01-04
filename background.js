@@ -291,26 +291,18 @@ async function saveWindowTitle(windowId, title) {
 }
 
 async function fetchTabGroups(windows) {
-  const ids = new Set();
-  windows.forEach(win => {
-    (win.tabs || []).forEach(tab => {
-      if (typeof tab.groupId === 'number' && tab.groupId >= 0) {
-        ids.add(tab.groupId);
-      }
-    });
-  });
-  const groups = [];
-  await Promise.all(
-    [...ids].map(async id => {
-      try {
-        const group = await chrome.tabGroups.get(id);
-        groups.push(group);
-      } catch (err) {
-        console.warn('Failed to fetch tab group', id, err);
-      }
-    }),
-  );
-  return groups;
+  // Optimization: use chrome.tabGroups.query instead of individual gets
+  try {
+    // If we are fetching for specific windows, we can try to filter
+    if (windows.length === 1) {
+      return await chrome.tabGroups.query({ windowId: windows[0].id });
+    }
+    // Otherwise fetch all (fetching all is often faster than N individual GETs)
+    return await chrome.tabGroups.query({});
+  } catch (err) {
+    console.warn('Failed to fetch tab groups', err);
+    return [];
+  }
 }
 
 async function getActiveWindows() {

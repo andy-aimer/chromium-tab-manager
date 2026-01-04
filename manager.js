@@ -83,6 +83,57 @@ saveAllBtn.addEventListener('click', async () => {
     saveAllBtn.disabled = false;
   }
 });
+
+saveSessionBtn.addEventListener('click', async () => {
+  saveSessionBtn.disabled = true;
+  try {
+    const checkedWindows = Array.from(document.querySelectorAll("input[data-select-kind='window']:checked"));
+    const windowIds = checkedWindows.map(cb => Number(cb.dataset.windowId));
+
+    if (!windowIds.length) {
+      toast('Select at least one window to export.');
+      return;
+    }
+
+    // Collect tabs only from selected windows
+    let allTabIds = [];
+    // If cache is empty, we might need to load it (edge case), but usually it's there.
+    if (!activeWindowsCache.length) {
+      activeWindowsCache = await sendMessage({ type: 'get-active' });
+    }
+
+    windowIds.forEach(wid => {
+      const win = activeWindowsCache.find(w => w.id === wid);
+      if (win && win.tabs) {
+        allTabIds.push(...win.tabs.map(t => t.id));
+      }
+    });
+
+    if (!allTabIds.length) {
+      toast('No tabs found in selected windows.');
+      return;
+    }
+
+    await saveMarkdownForTabIds(allTabIds);
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    saveSessionBtn.disabled = false;
+  }
+});
+
+expandAllBtn.addEventListener('click', () => {
+  const cards = document.querySelectorAll('.card');
+  cards.forEach(card => {
+    const toggleBtn = card.querySelector('.toggle-tabs');
+    const list = card.querySelector('.tab-list');
+    if (list && list.hasAttribute('hidden')) {
+      // Simulate a click on the toggle button to reuse logic (lazy load etc)
+      toggleBtn.click();
+    }
+  });
+});
+
 saveMarkdownBtn.addEventListener('click', async () => {
   const selectedTabIds = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"))
     .map(input => Number(input.dataset.tabId))
@@ -422,6 +473,20 @@ function createWindowCard(win) {
     });
   });
 
+  // Auto-expand if window is focused
+  if (win.focused) {
+    const targetContainer = card.querySelector('.tab-list');
+    if (targetContainer) {
+      targetContainer.removeAttribute('hidden');
+      toggleButtons.forEach(btn => {
+        btn.classList.remove('collapsed');
+        btn.textContent = '▾';
+      });
+      // Load content immediately
+      loadWindowDetails(win.id, card);
+    }
+  }
+
   container.dataset.windowId = win.id;
   container.addEventListener('drop', handleGroupContainerDrop);
 
@@ -440,7 +505,7 @@ async function loadWindowDetails(windowId, card) {
       cachedWindow.tabs = win.tabs;
       cachedWindow.groups = win.groups;
     }
-    
+
     const metaEl = card.querySelector('.meta');
     metaEl.textContent = `${win.tabs.length} tab(s)`;
 
