@@ -635,19 +635,65 @@ function handleWindowDragStart(event) {
   card.classList.add('dragging');
 }
 
+const throttledWindowDragOverLogic = throttle((event) => {
+  if (!windowDragContext) return;
+  const targetCard = event.currentTarget;
+  if (!targetCard) {
+    clearWindowDropIndicator();
+    return;
+  }
+  const targetId = Number(targetCard.dataset.winId);
+  // Don't simplify to "if target==source" return, because we might reorder within list
+  if (targetId === windowDragContext.windowId) {
+    return;
+  }
+
+  const rect = targetCard.getBoundingClientRect();
+  // Horizontal list?
+  // Grid layout?
+  // We determine 'before' based on center of card locally? 
+  // Let's stick to simple logic: center x/y?
+  // If flex-wrap, vertical order matters more.
+  // Let's assume standard flow (left to right, top to bottom).
+  // If we are in the 'active-list', it's a grid/flex.
+
+  // Logic: 
+  // If pointer is left of center (or top half if single col), insert before.
+  // Simple check: mid-point of bounding box.
+  const midX = rect.left + rect.width / 2;
+  const midY = rect.top + rect.height / 2;
+
+  // Decide based on layout. CSS uses grid/flex.
+  // Simple heuristic: if same row (approx Y), check X. Else check Y.
+  // For simplicity, checking if mouse > midX might be enough for LTR, 
+  // but if wrapping, checking Y is safer.
+
+  const mouseX = event.clientX;
+  const mouseY = event.clientY;
+
+  let before = false;
+
+  // Very rough grid logic:
+  // If above: before.
+  // If below: after.
+  // If same row (overlapping Y range): check X.
+
+  if (mouseY < rect.top) {
+    before = true;
+  } else if (mouseY > rect.bottom) {
+    before = false;
+  } else {
+    // In same/overlapping row
+    before = mouseX < midX;
+  }
+
+  showWindowDropIndicator(targetCard, before);
+}, 50);
+
 function handleWindowDragOver(event) {
-  if (!windowDragContext) {
-    return;
-  }
-  const card = event.currentTarget;
-  if (Number(card.dataset.winId) === windowDragContext.windowId) {
-    return;
-  }
-  event.preventDefault();
-  event.dataTransfer.dropEffect = 'move';
-  const rect = card.getBoundingClientRect();
-  const before = event.clientY < rect.top + rect.height / 2;
-  updateWindowDropIndicator(card, before);
+  event.preventDefault(); // Mandatory for drop
+  event.dataTransfer.dropEffect = 'move'; // This needs to be set for the drop to work
+  throttledWindowDragOverLogic(event);
 }
 
 function handleWindowDrop(event) {
