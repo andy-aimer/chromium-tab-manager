@@ -576,3 +576,90 @@ menu {
 .toggle-tabs.collapsed {
   transform: rotate(-90deg);
 }
+
+#context-menu {
+  position: fixed;
+  z-index: 10000;
+  display: none;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  min-width: 200px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+#context-menu .menu-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+#context-menu .menu-item:hover,
+#context-menu .menu-item.active {
+  background-color: #f1f5f9;
+}
+
+#context-menu .menu-item.danger {
+  color: var(--danger);
+}
+
+#context-menu .menu-item.info {
+  background: transparent;
+  cursor: default;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+}
+#context-menu .menu-item.info:hover {
+    background: transparent;
+}
+
+#context-menu .menu-item .meta {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-weight: normal;
+    display: block;
+    margin-top: 2px;
+}
+
+#context-menu .divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+/* Submenu styles */
+#context-menu .menu-item.has-submenu::after {
+  content: '▸';
+  margin-left: auto;
+  color: var(--muted);
+}
+
+#context-menu .submenu {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 100%;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  min-width: 180px;
+  margin-left: 4px;
+}
+
+#context-menu .menu-item:hover > .submenu {
+  display: block;
+}
+
+#context-menu .submenu .menu-item {
+    font-size: 0.85rem;
+}

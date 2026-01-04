@@ -405,14 +405,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'rename-group':
         respond(await chrome.tabGroups.update(message.groupId, { title: message.title || '' }));
         break;
-      case 'move-tab':
+      case 'update-group':
+        respond(await chrome.tabGroups.update(message.groupId, message.updateProperties));
+        break;
+      case 'move-tab': {
+        const tabIds = Array.isArray(message.tabIds) ? message.tabIds : [message.tabId];
         respond(
-          await chrome.tabs.move(message.tabId, {
+          await chrome.tabs.move(tabIds, {
             windowId: message.windowId,
             index: message.index,
           }),
         );
         break;
+      }
       case 'assign-group':
         respond(await assignToGroup(message));
         break;
@@ -435,6 +440,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         let result;
         if (message.kind === 'tab') {
           result = await chrome.windows.create({ tabId: message.tabId });
+        } else if (message.kind === 'tabs') {
+          const tabIds = message.tabIds;
+          const first = tabIds[0];
+          const others = tabIds.slice(1);
+          result = await chrome.windows.create({ tabId: first });
+          if (others.length) {
+            await chrome.tabs.move(others, { windowId: result.id, index: -1 });
+          }
         } else if (message.kind === 'group') {
           result = await moveGroupToNewWindow(message.groupId, message.windowId);
         } else {
@@ -468,6 +481,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         respond(results);
         break;
       }
+      case 'create-window':
+        respond(await chrome.windows.create({}));
+        break;
       default:
         respond(new Error('Unknown message type'), true);
         break;
