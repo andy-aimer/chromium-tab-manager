@@ -320,31 +320,36 @@ async function loadActiveWindows() {
   // 1. Update or Create
   sortedWindows.forEach((win, index) => {
     let card = existingCards.get(win.id);
-    // User requested [Index] prefix
-    const displayTitle = `[${index + 1}] ${win.title}`;
+    const orderKeyText = `[${index + 1}]`;
 
     if (card) {
       // Update existing
+      const orderKeyEl = card.querySelector('.card-order-key');
+      if (orderKeyEl) orderKeyEl.textContent = orderKeyText;
+
       const titleEl = card.querySelector('.title');
-      if (titleEl && titleEl.textContent !== displayTitle) {
-        titleEl.textContent = displayTitle;
+      if (titleEl && titleEl.textContent !== win.title) {
+        titleEl.textContent = win.title;
       }
 
-      // Fix for live updates: If the card is expanded, we MUST refresh its content 
-      // because the "light" window object doesn't have the latest tabs/groups.
+      // Fix for live updates: Refresh content if expanded
       const tabListContainer = card.querySelector('.tab-list');
       if (tabListContainer && tabListContainer.dataset.loaded === 'true' && !tabListContainer.hasAttribute('hidden')) {
         loadWindowDetails(win.id, card);
       }
       existingCards.delete(win.id); // Mark as visited
 
-      // Update order if needed (simple append moves it)
+      // Update order if needed
       activeListEl.appendChild(card);
     } else {
       // Create new
       card = createWindowCard(win);
+
+      const orderKeyEl = card.querySelector('.card-order-key');
+      if (orderKeyEl) orderKeyEl.textContent = orderKeyText;
+
       const titleEl = card.querySelector('.title');
-      if (titleEl) titleEl.textContent = displayTitle;
+      if (titleEl) titleEl.textContent = win.title;
 
       activeListEl.appendChild(card);
 
@@ -641,18 +646,22 @@ function persistWindowOrderFromDom() {
   saveWindowOrder(order);
 
   // Update prefixes
+  // Update prefixes
   cards.forEach((card, index) => {
+    // Update the separate order key element
+    const orderKeyEl = card.querySelector('.card-order-key');
+    if (orderKeyEl) {
+      orderKeyEl.textContent = `[${index + 1}]`;
+    }
+
     const titleEl = card.querySelector('.title');
     const winId = Number(card.dataset.winId);
     const win = activeWindowMap.get(winId);
     if (titleEl && win) {
-      // We need to keep the original title but update the prefix.
       // win.title is the source of truth for the NAME. 
-      // The DOM might have [N] Name.
-      // Let's assume win.title is correct base.
-      const newDisplayTitle = `[${index + 1}] ${win.title}`;
-      if (titleEl.textContent !== newDisplayTitle) {
-        titleEl.textContent = newDisplayTitle;
+      // We no longer prepend [N] here.
+      if (titleEl.textContent !== win.title) {
+        titleEl.textContent = win.title;
       }
     }
   });
