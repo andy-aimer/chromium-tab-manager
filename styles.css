@@ -724,3 +724,17 @@ menu {
   border-radius: 50%;
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
+
+.window-drop-indicator {
+  position: absolute;
+  background-color: #dbeafe;
+  /* bright-light-blue */
+  border: 2px dashed #3b82f6;
+  /* bright-blue */
+  border-radius: 8px;
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 1000;
+  transition: all 0.1s ease;
+  box-sizing: border-box;
+}

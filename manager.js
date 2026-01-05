@@ -716,7 +716,7 @@ const throttledWindowDragOverLogic = throttle((event) => {
     before = mouseX < midX;
   }
 
-  showWindowDropIndicator(targetCard, before);
+  updateWindowDropIndicator(targetCard, before);
 }, 50);
 
 function handleWindowDragEnd(event) {
@@ -1328,11 +1328,20 @@ function clearDropIndicator() {
 
 function updateWindowDropIndicator(target, before) {
   const rect = target.getBoundingClientRect();
-  const height = 12;
+  const height = 100; // Large target area
+  const gap = 20; // Visual gap reference
+
   windowDropIndicator.style.width = `${rect.width}px`;
   windowDropIndicator.style.left = `${rect.left}px`;
+
+  // Position "in between"
   windowDropIndicator.style.height = `${height}px`;
-  windowDropIndicator.style.top = before ? `${rect.top - height / 2}px` : `${rect.bottom - height / 2}px`;
+
+  if (before) {
+    windowDropIndicator.style.top = `${rect.top - height / 2}px`;
+  } else {
+    windowDropIndicator.style.top = `${rect.bottom - height / 2}px`;
+  }
   if (!windowDropIndicator.isConnected) {
     document.body.appendChild(windowDropIndicator);
   }
