@@ -576,17 +576,16 @@ menu {
 }
 
 .toggle-tabs {
-  width: .78rem;
-  height: .78rem;
+  width: 1rem;
+  height: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   margin: 0;
-  border: 1px solid #676767;
-  background: #fff;
-  border-radius: 5px;
-  font-weight: 700;
+  border: 0;
+  font-size: 1rem;
+  font-weight: 1200;
   line-height: 1;
   order: 0;
   align-self: flex-start;
