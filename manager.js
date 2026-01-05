@@ -12,6 +12,65 @@ const undoBtn = document.getElementById('undo-btn');
 const redoBtn = document.getElementById('redo-btn');
 const traceHistoryToggle = document.getElementById('trace-history');
 
+// Settings Elements
+const settingsBtn = document.getElementById('settings-btn');
+const settingsModal = document.getElementById('settings-modal');
+const closeSettingsBtn = document.getElementById('close-settings-btn');
+const saveSettingsBtn = document.getElementById('save-settings-btn');
+const undoLimitInput = document.getElementById('undo-limit-input');
+
+// Initialize Settings Logic
+settingsBtn?.addEventListener('click', async () => {
+  // Loading state
+  undoLimitInput.disabled = true;
+  settingsModal.removeAttribute('hidden');
+
+  try {
+    const settings = await sendMessage({ type: 'get-settings' });
+    if (settings && settings.undoLimit) {
+      undoLimitInput.value = settings.undoLimit;
+    }
+  } catch (err) {
+    console.error('Failed to load settings', err);
+    toast('Failed to load settings');
+  } finally {
+    undoLimitInput.disabled = false;
+  }
+});
+
+const closeSettings = () => {
+  settingsModal.setAttribute('hidden', '');
+};
+
+closeSettingsBtn?.addEventListener('click', closeSettings);
+settingsModal?.addEventListener('click', (e) => {
+  if (e.target === settingsModal) {
+    closeSettings();
+  }
+});
+
+saveSettingsBtn?.addEventListener('click', async () => {
+  const limit = parseInt(undoLimitInput.value, 10);
+  if (isNaN(limit) || limit < 10 || limit > 1000) {
+    toast('Please enter a valid limit (10-1000)');
+    return;
+  }
+
+  saveSettingsBtn.disabled = true;
+  try {
+    await sendMessage({
+      type: 'update-settings',
+      settings: { undoLimit: limit }
+    });
+    toast('Settings saved');
+    closeSettings();
+  } catch (err) {
+    toast('Failed to save settings');
+  } finally {
+    saveSettingsBtn.disabled = false;
+  }
+});
+
 let dragContext = null;
 let activeWindowsCache = [];
 let activeWindowMap = new Map();

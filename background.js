@@ -2,6 +2,7 @@ const WINDOW_TITLES_KEY = 'tab-manager:window-titles';
 const WINDOW_ORDER_KEY = 'tab-manager:window-order';
 const UNDO_STACK_KEY = 'tab-manager:undo-stack';
 const REDO_STACK_KEY = 'tab-manager:redo-stack';
+const SETTINGS_KEY = 'tab-manager:settings';
 const MANAGER_URL = chrome.runtime.getURL('manager.html');
 let storagePromise = Promise.resolve();
 
@@ -10,14 +11,16 @@ class CommandManager {
     this.undoStack = [];
     this.redoStack = [];
     this.loaded = false;
+    this.settings = { undoLimit: 50 }; // Default settings
   }
 
   async load() {
     if (this.loaded) return;
     try {
-      const data = await chrome.storage.local.get([UNDO_STACK_KEY, REDO_STACK_KEY]);
+      const data = await chrome.storage.local.get([UNDO_STACK_KEY, REDO_STACK_KEY, SETTINGS_KEY]);
       this.undoStack = data[UNDO_STACK_KEY] || [];
       this.redoStack = data[REDO_STACK_KEY] || [];
+      this.settings = { ...this.settings, ...(data[SETTINGS_KEY] || {}) };
       this.loaded = true;
     } catch (err) {
       console.error('Failed to load command stacks', err);
@@ -27,8 +30,10 @@ class CommandManager {
   async save() {
     try {
       // Limit stack size to prevent storage quota issues
-      if (this.undoStack.length > 50) this.undoStack.shift();
-      if (this.redoStack.length > 50) this.redoStack.shift();
+      // Limit stack size based on settings
+      const limit = this.settings.undoLimit || 50;
+      if (this.undoStack.length > limit) this.undoStack.shift();
+      if (this.redoStack.length > limit) this.redoStack.shift();
 
       await chrome.storage.local.set({
         [UNDO_STACK_KEY]: this.undoStack,
@@ -706,6 +711,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         break;
       case 'get-all-groups':
         respond(await chrome.tabGroups.query({}));
+        break;
+      case 'get-settings':
+        await commandManager.load();
+        respond(commandManager.settings);
+        break;
+      case 'update-settings':
+        await commandManager.load();
+        commandManager.settings = { ...commandManager.settings, ...message.settings };
+        await chrome.storage.local.set({ [SETTINGS_KEY]: commandManager.settings });
+        respond({ success: true, settings: commandManager.settings });
         break;
       case 'rename-window': {
         const { windowId, title } = message;

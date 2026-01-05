@@ -167,10 +167,9 @@ button.danger {
   background: #f1f5f9;
   break-inside: avoid;
 
-  /* UI Virtualization */
   content-visibility: auto;
   contain-intrinsic-size: 100px 300px;
-  /* Estimate width/height to reduce layout shift */
+
 }
 
 .card.dragging {
@@ -253,20 +252,17 @@ button.danger {
 
 .tab-item.dragging {
   opacity: 1;
-  /* Keep fully opaque as requested, or maybe slight? "dragged items still be checked" - user wants visibility */
-  opacity: 0.9;
+  opacity: 0.3;
   cursor: grabbing;
-  border: 1px solid #3b82f6;
-  /* bright-blue */
-  background: #dbeafe;
-  /* bright-light-blue */
+
+  background: #64edff;
+
   position: relative;
-  /* Ensure it looks checked */
+
 }
 
 .tab-item.selected {
-  background: #dbeafe;
-  /* bright-light-blue */
+  background: #64aaff;
 }
 
 .tab-item.dragging::after {
@@ -666,10 +662,9 @@ menu {
   margin: 4px 0;
 }
 
-/* Submenu styles */
 #context-menu .menu-item.has-submenu::after {
   content: '▸';
-  margin-left: auto;
+  margin-left: 0px;
   color: var(--muted);
 }
 
@@ -695,14 +690,11 @@ menu {
   font-size: 0.85rem;
 }
 
-/* Color Picker Grid in Context Menu */
 .submenu.grid-layout {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  gap: 8px;
-  padding: 8px;
-  min-width: 250px;
+
 }
 
 .submenu.grid-layout .menu-item {
@@ -730,9 +722,9 @@ menu {
 .window-drop-indicator {
   position: absolute;
   background-color: #dbeafe;
-  /* bright-light-blue */
+
   border: 2px dashed #3b82f6;
-  /* bright-blue */
+
   border-radius: 8px;
   opacity: 0.8;
   pointer-events: none;
@@ -745,10 +737,10 @@ menu {
   margin-right: 0.5rem;
   font-size: 0.8rem;
   cursor: default;
-  /* Fixed width as requested */
+
   width: 0.8rem;
   text-align: left;
-  /* subtle pulse */
+
   animation: pulse-audio 1.5s infinite ease-in-out;
 }
 
