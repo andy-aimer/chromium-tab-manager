@@ -2047,22 +2047,37 @@ async function handleContextMenu(event) {
 
 
       // Move tab submenu
-      const moveSubmenu = await buildMoveSubmenu((targetWinId, targetGroupId) => {
-        return sendMessage({
-          type: 'move-tab',
-          tabIds: [tabId],
-          windowId: targetWinId,
-          index: -1
-          // If group is specified, we might need to then group it. 
-          // 'move-tab' only moves window/index. 
-          // Adding group support to moveSubmenu logic is needed.
-        }).then(async () => {
-          if (targetGroupId !== undefined) {
-            await sendMessage({ type: 'assign-group', tabIds: [tabId], groupId: targetGroupId });
+      const moveSubmenu = await buildMoveSubmenu(
+        (targetWinId, targetGroupId) => {
+          return sendMessage({
+            type: 'move-tab',
+            tabIds: [tabId],
+            windowId: targetWinId,
+            index: -1
+            // If group is specified, we might need to then group it. 
+            // 'move-tab' only moves window/index. 
+            // Adding group support to moveSubmenu logic is needed.
+          }).then(async () => {
+            if (targetGroupId !== undefined) {
+              await sendMessage({ type: 'assign-group', tabIds: [tabId], groupId: targetGroupId });
+            }
+            await loadActiveWindows();
+          });
+        },
+        async (targetIndex) => {
+          const newWindow = await sendMessage({
+            type: 'move-to-new-window',
+            kind: 'tab',
+            tabId: tabId
+          });
+          if (newWindow) {
+            const order = activeWindowsCache.map(w => w.id);
+            order.splice(targetIndex, 0, newWindow.id);
+            await saveWindowOrder(order);
+            await loadActiveWindows();
           }
-          await loadActiveWindows();
-        });
-      });
+        }
+      );
 
       items.push({
         label: 'Move tab',
@@ -2143,14 +2158,29 @@ async function handleContextMenu(event) {
       });
 
       // Move group submenu
-      const moveSubmenu = await buildMoveSubmenu((targetWinId) => {
-        return sendMessage({
-          type: 'move-group',
-          groupId: groupId,
-          windowId: targetWinId,
-          index: -1
-        }).then(() => loadActiveWindows());
-      });
+      const moveSubmenu = await buildMoveSubmenu(
+        (targetWinId) => {
+          return sendMessage({
+            type: 'move-group',
+            groupId: groupId,
+            windowId: targetWinId,
+            index: -1
+          }).then(() => loadActiveWindows());
+        },
+        async (targetIndex) => {
+          const newWindow = await sendMessage({
+            type: 'move-to-new-window',
+            kind: 'group',
+            groupId: groupId
+          });
+          if (newWindow) {
+            const order = activeWindowsCache.map(w => w.id);
+            order.splice(targetIndex, 0, newWindow.id);
+            await saveWindowOrder(order);
+            await loadActiveWindows();
+          }
+        }
+      );
 
       items.push({
         label: 'Move group',
@@ -2294,7 +2324,7 @@ function renderContextMenu(items, x, y) {
   }
 }
 
-async function buildMoveSubmenu(onSelect) {
+async function buildMoveSubmenu(onSelect, onNewWindowAtIndex) {
   // Returns Items for submenu
   // Tree: Window -> Groups
   const windows = activeWindowsCache || [];
@@ -2318,6 +2348,14 @@ async function buildMoveSubmenu(onSelect) {
   });
 
   windows.forEach((win, index) => {
+    // Interleaved New Window Option
+    if (onNewWindowAtIndex) {
+      menuItems.push({
+        label: '--- [ new window ] ---',
+        action: () => onNewWindowAtIndex(index)
+      });
+    }
+
     // Option to move to Window itself
     menuItems.push({
       label: `[${index + 1}] ${win.title}`,
@@ -2338,7 +2376,18 @@ async function buildMoveSubmenu(onSelect) {
     }
   });
 
+  // Final New Window Option
+  if (onNewWindowAtIndex) {
+    menuItems.push({
+      label: '--- [ new window ] ---',
+      action: () => onNewWindowAtIndex(windows.length)
+    });
+  }
+
   return menuItems;
+}
+
+return menuItems;
 }
 
 // Start the application
