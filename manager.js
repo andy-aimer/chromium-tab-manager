@@ -2387,8 +2387,7 @@ async function buildMoveSubmenu(onSelect, onNewWindowAtIndex) {
   return menuItems;
 }
 
-return menuItems;
-}
+
 
 // Start the application
 loadAll();
