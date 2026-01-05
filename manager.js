@@ -365,6 +365,7 @@ function createWindowCard(win) {
   header.classList.add('compact-header');
   header.setAttribute('draggable', 'true');
   header.addEventListener('dragstart', handleWindowDragStart);
+  header.addEventListener('dragend', handleWindowDragEnd);
   card.addEventListener('dragover', handleWindowDragOver);
   card.addEventListener('drop', handleWindowDrop);
   const windowCheckbox = createSelectCheckbox('window', { windowId: win.id });
@@ -714,6 +715,15 @@ const throttledWindowDragOverLogic = throttle((event) => {
 
   showWindowDropIndicator(targetCard, before);
 }, 50);
+
+function handleWindowDragEnd(event) {
+  const card = event.target.closest('.card');
+  if (card) {
+    card.classList.remove('dragging');
+  }
+  windowDragContext = null;
+  clearWindowDropIndicator();
+}
 
 function handleWindowDragOver(event) {
   event.preventDefault(); // Mandatory for drop
