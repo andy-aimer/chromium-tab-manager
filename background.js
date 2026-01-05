@@ -704,6 +704,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'get-window-details':
         respond(await getWindowDetails(message.windowId));
         break;
+      case 'get-all-groups':
+        respond(await chrome.tabGroups.query({}));
+        break;
       case 'rename-window': {
         const { windowId, title } = message;
         const oldTitle = (await loadWindowTitles())[windowId] || '';

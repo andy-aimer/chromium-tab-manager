@@ -1093,14 +1093,23 @@ function getFaviconUrl(tab) {
   if (tab.favicon) {
     return tab.favicon;
   }
-  const fallback = 'chrome://favicon/size/16@2x/';
   const url = tab.url || tab.pendingUrl;
+  if (url.includes('window_end_marker')) {
+    return '';
+  }
+  const fallback = 'chrome://favicon/size/16@2x/';
+  // Use protocol check or just try/catch
+  if (url.startsWith('chrome://') || url.startsWith('edge://') || url.startsWith('about:')) {
+    // These might not work with the chrome://favicon/ approach directly or might need permissions depending on browser
+    // But usually standard favicon fetch works for valid URLs.
+    // If it fails, the img onerror below handles it.
+  }
   if (!url) {
     return '';
   }
   try {
     const parsed = new URL(url);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'chrome-extension:') {
       return `${fallback}${parsed.origin}`;
     }
     return '';
