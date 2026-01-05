@@ -555,7 +555,10 @@ function createWindowCard(win) {
 
 async function loadWindowDetails(windowId, card) {
   const container = card.querySelector('.tab-list');
-  container.textContent = 'Loading...';
+  // Only show loading if we don't have content, to prevent flash on reload
+  if (!container.hasChildNodes()) {
+    container.textContent = 'Loading...';
+  }
   try {
     const win = await sendMessage({ type: 'get-window-details', windowId });
 
