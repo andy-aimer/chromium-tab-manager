@@ -138,6 +138,19 @@ expandAllBtn.addEventListener('click', () => {
   });
 });
 
+const minimizeAllBtn = document.getElementById('minimize-all-btn');
+minimizeAllBtn.addEventListener('click', () => {
+  const cards = document.querySelectorAll('.card');
+  cards.forEach(card => {
+    const toggleBtn = card.querySelector('.toggle-tabs');
+    const list = card.querySelector('.tab-list');
+    if (list && !list.hasAttribute('hidden')) {
+      // Simulate click to collapse
+      toggleBtn.click();
+    }
+  });
+});
+
 saveMarkdownBtn.addEventListener('click', async () => {
   const selectedTabIds = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"))
     .map(input => Number(input.dataset.tabId))
