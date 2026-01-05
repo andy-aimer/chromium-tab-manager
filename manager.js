@@ -2145,6 +2145,23 @@ async function buildMoveSubmenu(onSelect) {
   const windows = activeWindowsCache || [];
   const menuItems = [];
 
+  // Fetch all groups globally to ensure they are available even for collapsed windows
+  let allGroups = [];
+  try {
+    allGroups = await sendMessage({ type: 'get-all-groups' });
+  } catch (err) {
+    console.warn('Failed to fetch groups for submenu:', err);
+  }
+
+  // Map groups to windows
+  const windowGroups = new Map();
+  allGroups.forEach(g => {
+    if (!windowGroups.has(g.windowId)) {
+      windowGroups.set(g.windowId, []);
+    }
+    windowGroups.get(g.windowId).push(g);
+  });
+
   windows.forEach((win, index) => {
     // Option to move to Window itself
     menuItems.push({
@@ -2154,8 +2171,9 @@ async function buildMoveSubmenu(onSelect) {
     });
 
     // Groups within window
-    if (win.groups && win.groups.length) {
-      win.groups.forEach(g => {
+    const groups = windowGroups.get(win.id) || [];
+    if (groups.length) {
+      groups.forEach(g => {
         menuItems.push({
           label: `  ↳ ${g.title}`,
           textColor: colorToHex(g.color),

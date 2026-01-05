@@ -140,7 +140,10 @@ class CommandManager {
           const win = await chrome.windows.create({ tabId: first });
           if (others.length) await chrome.tabs.move(others, { windowId: win.id, index: -1 });
         }
-        break;
+      case 'get-tab-count':
+        return await getTotalTabCount();
+      case 'get-all-groups':
+        return await chrome.tabGroups.query({});
       case 'assign-group':
         await assignToGroup(data.message);
         break;
