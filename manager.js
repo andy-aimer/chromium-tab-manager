@@ -83,18 +83,7 @@ saveSettingsBtn?.addEventListener('click', async () => {
     saveSettingsBtn.disabled = false;
   }
 });
-await sendMessage({
-  type: 'update-settings',
-  settings: { undoLimit: limit }
-});
-toast('Settings saved');
-closeSettings();
-  } catch (err) {
-  toast('Failed to save settings');
-} finally {
-  saveSettingsBtn.disabled = false;
-}
-});
+
 
 let dragContext = null;
 let activeWindowsCache = [];
