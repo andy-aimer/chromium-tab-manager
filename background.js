@@ -870,7 +870,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         break;
       }
       case 'move-to-new-window': {
-        const { kind, groupId, windowId } = message;
+        let { kind, groupId, windowId } = message;
+        // Infer kind if not provided
+        if (!kind) {
+          if (message.groupId !== undefined) kind = 'group';
+          else if (message.tabIds && message.tabIds.length > 0) kind = 'tabs';
+          else if (message.tabId) kind = 'tab';
+        }
+
         // Capture sources
         let sources = [];
         let tabIds = [];
