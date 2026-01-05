@@ -664,57 +664,68 @@ function handleWindowDragStart(event) {
   card.classList.add('dragging');
 }
 
+// Helper to find closest card when dragging over container
+function getClosestCard(y) {
+  const cards = [...activeListEl.querySelectorAll('.card:not(.dragging)')];
+  return cards.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      return { offset: offset, element: child };
+    } else {
+      return closest;
+    }
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
 const throttledWindowDragOverLogic = throttle((event) => {
   if (!windowDragContext) return;
-  const targetCard = event.currentTarget;
+
+  let targetCard = event.target.closest('.card');
+  const isContainer = event.target === activeListEl || event.target.closest('#active-list');
+
+  // If over container gap, find closest card
+  if (!targetCard && isContainer) {
+    const closest = getClosestCard(event.clientY);
+    if (closest) {
+      targetCard = closest;
+    } else {
+      // If no closest (e.g. at bottom), default to last card?
+      const cards = activeListEl.querySelectorAll('.card');
+      if (cards.length) targetCard = cards[cards.length - 1];
+    }
+  }
+
   if (!targetCard) {
     clearWindowDropIndicator();
     return;
   }
+
   const targetId = Number(targetCard.dataset.winId);
-  // Don't simplify to "if target==source" return, because we might reorder within list
   if (targetId === windowDragContext.windowId) {
+    // clearWindowDropIndicator(); // Don't clear if we want to show it "after" self? 
+    // Usually dragging over self does nothing.
     return;
   }
 
   const rect = targetCard.getBoundingClientRect();
-  // Horizontal list?
-  // Grid layout?
-  // We determine 'before' based on center of card locally? 
-  // Let's stick to simple logic: center x/y?
-  // If flex-wrap, vertical order matters more.
-  // Let's assume standard flow (left to right, top to bottom).
-  // If we are in the 'active-list', it's a grid/flex.
-
-  // Logic: 
-  // If pointer is left of center (or top half if single col), insert before.
-  // Simple check: mid-point of bounding box.
   const midX = rect.left + rect.width / 2;
   const midY = rect.top + rect.height / 2;
-
-  // Decide based on layout. CSS uses grid/flex.
-  // Simple heuristic: if same row (approx Y), check X. Else check Y.
-  // For simplicity, checking if mouse > midX might be enough for LTR, 
-  // but if wrapping, checking Y is safer.
-
   const mouseX = event.clientX;
   const mouseY = event.clientY;
 
   let before = false;
-
-  // Very rough grid logic:
-  // If above: before.
-  // If below: after.
-  // If same row (overlapping Y range): check X.
-
   if (mouseY < rect.top) {
     before = true;
   } else if (mouseY > rect.bottom) {
     before = false;
   } else {
-    // In same/overlapping row
     before = mouseX < midX;
   }
+
+  // Special case: if we found "closest" via reduce, it finds the element *after* cursor.
+  // So if we used getClosestCard, we are likely "before" that card.
+  // But let's rely on the geometry check above which is robust.
 
   updateWindowDropIndicator(targetCard, before);
 }, 50);
@@ -730,7 +741,7 @@ function handleWindowDragEnd(event) {
 
 function handleWindowDragOver(event) {
   event.preventDefault(); // Mandatory for drop
-  event.dataTransfer.dropEffect = 'move'; // This needs to be set for the drop to work
+  event.dataTransfer.dropEffect = 'move';
   throttledWindowDragOverLogic(event);
 }
 
@@ -739,14 +750,41 @@ function handleWindowDrop(event) {
     return;
   }
   event.preventDefault();
-  const targetCard = event.currentTarget;
+
+  let targetCard = event.target.closest('.card');
+  const isContainer = event.target === activeListEl || event.target.closest('#active-list');
+
+  if (!targetCard && isContainer) {
+    // Re-calculate simply similar to dragover
+    const closest = getClosestCard(event.clientY);
+    if (closest) targetCard = closest;
+    else {
+      const cards = activeListEl.querySelectorAll('.card');
+      if (cards.length) targetCard = cards[cards.length - 1];
+    }
+  }
+
   const sourceCard = activeListEl.querySelector(`.card[data-win-id='${windowDragContext.windowId}']`);
-  if (!sourceCard || sourceCard === targetCard) {
+  if (!sourceCard || !targetCard || sourceCard === targetCard) {
     return;
   }
+
   clearWindowDropIndicator();
   const rect = targetCard.getBoundingClientRect();
-  const before = event.clientY < rect.top + rect.height / 2;
+
+  // Logic duplication, but safe. 
+  // Ideally share "calculateDropContext(event)"
+  let before = event.clientY < rect.top + rect.height / 2;
+
+  // Refine 'before' logic same as dragOver
+  const midX = rect.left + rect.width / 2;
+  const mouseY = event.clientY;
+  const mouseX = event.clientX;
+
+  if (mouseY < rect.top) before = true;
+  else if (mouseY > rect.bottom) before = false;
+  else before = mouseX < midX;
+
   moveElement(sourceCard, targetCard, before);
   persistWindowOrderFromDom();
 }
@@ -2388,6 +2426,10 @@ async function buildMoveSubmenu(onSelect, onNewWindowAtIndex) {
 }
 
 
+
+// Attach container-level drag listeners
+activeListEl.addEventListener('dragover', handleWindowDragOver);
+activeListEl.addEventListener('drop', handleWindowDrop);
 
 // Start the application
 loadAll();
