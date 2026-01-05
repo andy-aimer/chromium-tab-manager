@@ -159,7 +159,7 @@ button.danger {
   border: 1px solid var(--border);
 
   border-radius: 6px;
-  box-shadow: 0 12px 45px rgba(122, 122, 122, 0.722);
+  box-shadow: 0 12px 12px rgba(67, 67, 67, 0.4);
 
   padding-bottom: 0.6rem;
   padding-top: 0.3rem;
@@ -191,10 +191,10 @@ button.danger {
 .card-header {
   display: flex;
   justify-content: flex-start;
-  gap: 0.3rem;
   align-items: center;
   margin-left: 3px;
   margin-right: 3px;
+  margin-bottom: 3px;
 }
 
 .card-title {
@@ -558,7 +558,7 @@ menu {
 }
 
 .compact-header {
-  gap: .5rem;
+  gap: 0rem;
 }
 
 .compact-header .title,

@@ -21,44 +21,45 @@ const undoLimitInput = document.getElementById('undo-limit-input');
 
 // Initialize Settings Logic
 // Initialize Settings Logic
+  }
+});
+
+const showCardMetaInput = document.getElementById('show-card-meta-input');
+const applyCardMetaSetting = (show) => {
+  if (show) {
+    document.body.classList.remove('hide-card-meta');
+  } else {
+    document.body.classList.add('hide-card-meta');
+  }
+};
+
 settingsBtn?.addEventListener('click', async () => {
   const isHidden = settingsModal.hasAttribute('hidden');
 
   if (!isHidden) {
-    // If visible, hide it
     settingsModal.setAttribute('hidden', '');
     return;
   }
 
-  // If hidden, show it and load settings
   undoLimitInput.disabled = true;
+  showCardMetaInput.disabled = true;
   settingsModal.removeAttribute('hidden');
 
   try {
     const settings = await sendMessage({ type: 'get-settings' });
-    if (settings && settings.undoLimit) {
-      undoLimitInput.value = settings.undoLimit;
+    if (settings) {
+      if (settings.undoLimit) undoLimitInput.value = settings.undoLimit;
+      // Default true if undefined
+      const showMeta = settings.showCardMeta !== false;
+      showCardMetaInput.checked = showMeta;
+      applyCardMetaSetting(showMeta);
     }
   } catch (err) {
     console.error('Failed to load settings', err);
     toast('Failed to load settings');
   } finally {
     undoLimitInput.disabled = false;
-  }
-});
-
-const closeSettings = () => {
-  settingsModal.setAttribute('hidden', '');
-};
-
-// Toggle behavior handles opening/closing via button.
-// Button acts as "save & close" as well.
-settingsModal?.addEventListener('click', (e) => {
-  // If clicking outside the modal content (overlay), close it
-  // But user HTML structure might have changed. 
-  // Standard check:
-  if (e.target === settingsModal) {
-    closeSettings();
+    showCardMetaInput.disabled = false;
   }
 });
 
@@ -69,12 +70,18 @@ saveSettingsBtn?.addEventListener('click', async () => {
     return;
   }
 
+  const showMeta = showCardMetaInput.checked;
+
   saveSettingsBtn.disabled = true;
   try {
     await sendMessage({
       type: 'update-settings',
-      settings: { undoLimit: limit }
+      settings: {
+        undoLimit: limit,
+        showCardMeta: showMeta
+      }
     });
+    applyCardMetaSetting(showMeta);
     toast('Settings saved');
     closeSettings();
   } catch (err) {
@@ -83,6 +90,19 @@ saveSettingsBtn?.addEventListener('click', async () => {
     saveSettingsBtn.disabled = false;
   }
 });
+
+// Initial load of settings style
+(async () => {
+  try {
+    const settings = await sendMessage({ type: 'get-settings' });
+    if (settings) {
+      // Default true
+      applyCardMetaSetting(settings.showCardMeta !== false);
+    }
+  } catch (e) {
+    // ignore
+  }
+})();
 
 
 let dragContext = null;

@@ -58,13 +58,18 @@
                   <span class="tooltip">Maximum number of actions to store (10-1000).</span>
                 </label>
                 <input type="number" id="undo-limit-input" min="10" max="1000" step="10" value="50">
-                <button id="save-settings-btn" class="primary">Save</button>
               </div>
-
+              <div class="form-group checkbox-group">
+                <input type="checkbox" id="show-card-meta-input">
+                <label for="show-card-meta-input">Show Window Order Numbers</label>
+              </div>
+              <button id="save-settings-btn" class="primary">Save</button>
             </div>
+
           </div>
         </div>
-        <button id="settings-btn" class="icon-button" aria-label="Settings">⚙️</button>
+      </div>
+      <button id="settings-btn" class="icon-button" aria-label="Settings">⚙️</button>
       </div>
 
       <div id="active-list" class="list card-columns"></div>
@@ -76,11 +81,12 @@
 
   <template id="window-template">
     <article class="card">
+      <div class="card-meta">
+        <div class="card-order-key"></div>
+      </div>
       <div class="card-header">
         <button class="toggle-tabs toggle-tabs-left" aria-label="Toggle tabs">▴</button>
-        <div class="card-meta">
-          <div class="card-order-key"></div>
-        </div>
+
         <div class="card-title">
           <h3 class="title"></h3>
           <p class="meta text-sm"></p>
