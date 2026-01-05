@@ -1,4 +1,5 @@
 const WINDOW_TITLES_KEY = 'tab-manager:window-titles';
+const WINDOW_ORDER_KEY = 'tab-manager:window-order';
 const UNDO_STACK_KEY = 'tab-manager:undo-stack';
 const REDO_STACK_KEY = 'tab-manager:redo-stack';
 const MANAGER_URL = chrome.runtime.getURL('manager.html');
