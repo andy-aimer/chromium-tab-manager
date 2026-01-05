@@ -615,10 +615,29 @@ function sortWindowsByOrder(windows, order) {
 }
 
 function persistWindowOrderFromDom() {
-  const order = Array.from(activeListEl.querySelectorAll('.card'))
+  const cards = Array.from(activeListEl.querySelectorAll('.card'));
+  const order = cards
     .map(card => Number(card.dataset.winId))
     .filter(Boolean);
   saveWindowOrder(order);
+
+  // Update prefixes
+  cards.forEach((card, index) => {
+    const titleEl = card.querySelector('.title');
+    const winId = Number(card.dataset.winId);
+    const win = activeWindowMap.get(winId);
+    if (titleEl && win) {
+      // We need to keep the original title but update the prefix.
+      // win.title is the source of truth for the NAME. 
+      // The DOM might have [N] Name.
+      // Let's assume win.title is correct base.
+      const newDisplayTitle = `[${index + 1}] ${win.title}`;
+      if (titleEl.textContent !== newDisplayTitle) {
+        titleEl.textContent = newDisplayTitle;
+      }
+    }
+  });
+
   // activeWindowMap is already efficient
   const reordered = order.map(id => activeWindowMap.get(id)).filter(Boolean);
   const missing = activeWindowsCache.filter(win => !order.includes(win.id));
