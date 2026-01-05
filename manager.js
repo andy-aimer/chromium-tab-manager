@@ -993,7 +993,7 @@ function createTabItem(win, tab) {
 
   // Audio Indicator
   if (tab.audible) {
-    const audioIndicator = document.createElement('span');
+    const audioIndicator = document.createElement('div');
     audioIndicator.className = 'tab-audio-indicator';
     audioIndicator.textContent = '🔊';
     audioIndicator.title = 'Playing audio';
