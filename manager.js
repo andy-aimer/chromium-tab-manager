@@ -20,8 +20,17 @@ const saveSettingsBtn = document.getElementById('save-settings-btn');
 const undoLimitInput = document.getElementById('undo-limit-input');
 
 // Initialize Settings Logic
+// Initialize Settings Logic
 settingsBtn?.addEventListener('click', async () => {
-  // Loading state
+  const isHidden = settingsModal.hasAttribute('hidden');
+
+  if (!isHidden) {
+    // If visible, hide it
+    settingsModal.setAttribute('hidden', '');
+    return;
+  }
+
+  // If hidden, show it and load settings
   undoLimitInput.disabled = true;
   settingsModal.removeAttribute('hidden');
 
@@ -42,8 +51,12 @@ const closeSettings = () => {
   settingsModal.setAttribute('hidden', '');
 };
 
-closeSettingsBtn?.addEventListener('click', closeSettings);
+// Toggle behavior handles opening/closing via button.
+// Button acts as "save & close" as well.
 settingsModal?.addEventListener('click', (e) => {
+  // If clicking outside the modal content (overlay), close it
+  // But user HTML structure might have changed. 
+  // Standard check:
   if (e.target === settingsModal) {
     closeSettings();
   }
@@ -69,6 +82,18 @@ saveSettingsBtn?.addEventListener('click', async () => {
   } finally {
     saveSettingsBtn.disabled = false;
   }
+});
+await sendMessage({
+  type: 'update-settings',
+  settings: { undoLimit: limit }
+});
+toast('Settings saved');
+closeSettings();
+  } catch (err) {
+  toast('Failed to save settings');
+} finally {
+  saveSettingsBtn.disabled = false;
+}
 });
 
 let dragContext = null;
