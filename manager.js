@@ -315,11 +315,13 @@ async function loadActiveWindows() {
       const titleEl = card.querySelector('.title');
       if (titleEl && titleEl.textContent !== displayTitle) {
         titleEl.textContent = displayTitle;
-        // Re-attach inline rename listener if title changed? 
-        // Actually, existing listener holds old title closure, so we should likely re-create listener or rely on updated 'win' in closure?
-        // Simpler: Just update text. The click listener uses 'win.title' from closure? No, it uses 'win.title' property of 'win' passed to createWindowCard.
-        // We need to update that 'win' reference or the dataset/properties the listener reads.
-        // For now, let's assume basic title text update is enough visually.
+      }
+
+      // Fix for live updates: If the card is expanded, we MUST refresh its content 
+      // because the "light" window object doesn't have the latest tabs/groups.
+      const tabListContainer = card.querySelector('.tab-list');
+      if (tabListContainer && tabListContainer.dataset.loaded === 'true' && !tabListContainer.hasAttribute('hidden')) {
+        loadWindowDetails(win.id, card);
       }
       existingCards.delete(win.id); // Mark as visited
 
