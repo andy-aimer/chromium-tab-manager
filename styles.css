@@ -163,7 +163,10 @@ button.danger {
 
   padding-bottom: 0.6rem;
   padding-top: 0.3rem;
-  margin: 0.6rem;
+  margin-bottom: 1.2rem;
+  margin-top: 0rem;
+  margin-left: 0.6rem;
+  margin-right: 0.6rem;
   background: #f1f5f9;
   break-inside: avoid;
 
@@ -608,7 +611,7 @@ menu {
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 4px 0;
-  min-width: 200px;
+
   color: var(--text);
   font-size: 0.9rem;
 }
