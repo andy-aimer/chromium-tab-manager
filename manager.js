@@ -975,7 +975,24 @@ function createTabItem(win, tab) {
   urlButton.className = 'tab-link-text';
   urlButton.textContent = tab.url || '';
   urlEl.appendChild(urlButton);
-  item.append(icon, label, urlEl, tabCheckbox);
+
+  item.append(icon, label);
+
+  // Audio Indicator
+  if (tab.audible) {
+    const audioIndicator = document.createElement('span');
+    audioIndicator.className = 'tab-audio-indicator';
+    audioIndicator.textContent = '🔊';
+    audioIndicator.title = 'Playing audio';
+
+    // Optional: click to mute? (Requires permission/backend support)
+    // For now purely visual.
+
+    item.appendChild(audioIndicator);
+  }
+
+  item.append(urlEl, tabCheckbox);
+
   if (tab.pinned) {
     item.classList.add('pinned');
     item.setAttribute('draggable', 'false');
