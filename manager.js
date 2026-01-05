@@ -1825,18 +1825,121 @@ async function handleContextMenu(event) {
   const x = event.clientX;
   const y = event.clientY;
 
-  // 1. Identify Selection
-  const selectedTabInputs = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"));
-  const selectedTabsCount = selectedTabInputs.length;
-
-  // 2. Identify Target Context
+  // 1. Identify Target Context
   const targetCard = event.target.closest('.card');
   const targetTabItem = event.target.closest('.tab-item');
   const targetGroupHeader = event.target.closest('.group-header');
 
+  // 2. Identify Selection
+  const selectedTabInputs = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"));
+  const selectedTabsCount = selectedTabInputs.length;
+
+
+  // Priority Order: 
+  // 1. Group Header (Force group actions)
+  // 2. Selection (If exists)
+  // 3. Tab Item
+  // 4. Window / Empty Space
+
   const items = [];
 
-  if (selectedTabsCount > 0) {
+  if (targetGroupHeader) {
+    const groupId = Number(targetGroupHeader.dataset.groupId);
+    const winId = Number(targetGroupHeader.dataset.windowId);
+
+    items.push({
+      label: 'View group',
+      action: async () => {
+        // Focus first tab in group?
+        const win = activeWindowsCache.find(w => w.id === winId);
+        if (win) {
+          const groupTabs = win.tabs.filter(t => t.groupId === groupId);
+          if (groupTabs.length) {
+            await sendMessage({ type: 'focus-tab', tabId: groupTabs[0].id });
+          }
+        }
+      }
+    });
+
+    // Change Group Color
+    const colors = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+    // Find current color
+    const win = activeWindowsCache.find(w => w.id === winId);
+    let currentColor = '';
+    if (win) {
+      const group = win.groups.find(g => g.id === groupId);
+      if (group) currentColor = group.color;
+    }
+
+    items.push({
+      label: 'Color',
+      // submenuLayout: 'grid', // Removed grid layout
+      submenu: colors.map(color => ({
+        label: color.charAt(0).toUpperCase() + color.slice(1),
+        // colorCode: colorToHex(color), // Removed swatch
+        textColor: colorToHex(color), // Added colored text
+        active: color === currentColor,
+        action: async () => {
+          await sendMessage({
+            type: 'update-group',
+            groupId: groupId,
+            updateProperties: { color: color }
+          });
+          await loadActiveWindows();
+        }
+      }))
+    });
+
+    items.push({
+      label: 'Un-group',
+      action: async () => {
+        const win = activeWindowsCache.find(w => w.id === winId);
+        if (win) {
+          const groupTabs = win.tabs.filter(t => t.groupId === groupId);
+          if (groupTabs.length) {
+            await sendMessage({
+              type: 'assign-group',
+              tabIds: groupTabs.map(t => t.id),
+              groupId: -1
+            });
+            await loadActiveWindows();
+          }
+        }
+      }
+    });
+
+    // Move group submenu
+    const moveSubmenu = await buildMoveSubmenu((targetWinId) => {
+      return sendMessage({
+        type: 'move-group',
+        groupId: groupId,
+        windowId: targetWinId,
+        index: -1
+      }).then(() => loadActiveWindows());
+    });
+
+    items.push({
+      label: 'Move group',
+      submenu: moveSubmenu.length ? moveSubmenu : [{ label: 'No other windows', info: true }]
+    });
+
+    items.push({
+      label: 'Close group',
+      danger: true,
+      action: async () => {
+        // Close all tabs in group
+        const win = activeWindowsCache.find(w => w.id === winId);
+        if (win) {
+          const groupTabs = win.tabs.filter(t => t.groupId === groupId);
+          if (groupTabs.length) {
+            await sendMessage({ type: 'close-tabs', tabIds: groupTabs.map(t => t.id) });
+            await loadActiveWindows();
+          }
+        }
+      }
+    });
+
+  } else if (selectedTabsCount > 0) {
     // --- Selection Mode ---
 
     // Calculate stats
@@ -1861,11 +1964,6 @@ async function handleContextMenu(event) {
         label: 'Create new group',
         action: async () => {
           const windowId = Number(targetCard.dataset.winId);
-          // Move tabs to this window first if they aren't there? 
-          // The spec says "at closest position of mouse pointer create new group and move selected tabs into that group"
-          // We'll treat it as: Move all selected tabs to this window (if needed) and group them.
-          // Or just group them in their current windows? "move selected tabs into that group" implies a single group in the target window.
-
           await sendMessage({
             type: 'assign-group',
             tabIds: selectedTabIds,
@@ -1877,13 +1975,19 @@ async function handleContextMenu(event) {
           await loadActiveWindows();
         }
       });
+
+      // Move selection to this window implemented? 
+      // It's covered by 'Move selection to new window' logic below for OUTSIDE context.
+      // But if I right click inside a DIFFERENT window, maybe I want to move selected tabs HERE?
+      // Logic from before:
+      // "At closest position of mouse pointer create new group and move selected tabs into that group"
+      // So the strict "Move here" logic is tied to "Create new group" above.
+
     } else {
       // Pointer outside window area
       items.push({
         label: 'Move selection to new window',
         action: async () => {
-          // Create new browser window and move selected tabs without any groups into new window
-          // Note: background.js 'move-to-new-window' with kind='tabs' we added handles this.
           await sendMessage({
             type: 'move-to-new-window',
             kind: 'tabs',
@@ -1898,17 +2002,6 @@ async function handleContextMenu(event) {
         items.push({
           label: 'Move grouped selection to new window',
           action: async () => {
-            // "create new browser window. create applicable group(s) in new window. Move selected tabs into the new window in their appropriate group"
-            // This is complex. For now, we can try to move them and preserver groups? 
-            // chrome.tabs.move will ungroup if moved to a new window usually, unless we regroup.
-            // Simpler implementation: Just move to new window. Regrouping matching previous state is hard without more backend logic.
-            // However, if we move a WHOLE group, it stays grouped? No.
-            // For now, I'll map this to the same 'move-to-new-window' for tabs, 
-            // but ideally we'd iterate and regroup. 
-            // Given 1-shot constraints, I will use the standard move for now or try to preserve groups if possible.
-            // Actually, to fully support "Move grouped selection", we need to orchestrate:
-            // 1. Create window with first tab. 2. Move rest. 3. Regroup based on old group Ids?
-            // Let's stick to the 'move-to-new-window' capability we added.
             await sendMessage({
               type: 'move-to-new-window',
               kind: 'tabs',
@@ -1922,7 +2015,8 @@ async function handleContextMenu(event) {
     }
 
   } else {
-    // --- No Selection Mode ---
+    // --- No Selection & No Group Header ---
+
 
     if (targetTabItem) {
       const tabId = Number(targetTabItem.dataset.tabId);
@@ -2109,10 +2203,19 @@ function renderContextMenu(items, x, y) {
         el.textContent = item.label;
         if (item.textColor) {
           el.style.color = item.textColor;
-          el.style.fontWeight = '600';
+          el.style.fontWeight = '700';
         }
         if (item.bold) {
           el.style.fontWeight = '700';
+        }
+        if (item.active) {
+          const check = document.createElement('span');
+          check.textContent = ' ✓';
+          check.style.marginLeft = 'auto';
+          check.style.fontWeight = 'bold';
+          el.appendChild(check);
+          el.style.display = 'flex'; // Ensure flex layout for checkmark alignment
+          el.style.justifyContent = 'space-between';
         }
       }
 
