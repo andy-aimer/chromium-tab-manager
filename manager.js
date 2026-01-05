@@ -785,7 +785,8 @@ function getClosestCard(y) {
 }
 
 const throttledWindowDragOverLogic = throttle((event) => {
-  if (!windowDragContext) return;
+  // Support both window reordering AND dropping tabs/groups to create new windows
+  if (!windowDragContext && !dragContext) return;
 
   let targetCard = event.target.closest('.card');
   const isContainer = event.target === activeListEl || event.target.closest('#active-list');
@@ -808,11 +809,17 @@ const throttledWindowDragOverLogic = throttle((event) => {
   }
 
   const targetId = Number(targetCard.dataset.winId);
-  if (targetId === windowDragContext.windowId) {
-    // clearWindowDropIndicator(); // Don't clear if we want to show it "after" self? 
-    // Usually dragging over self does nothing.
+
+  // If dragging a window, don't show indicator on self
+  if (windowDragContext && targetId === windowDragContext.windowId) {
     return;
   }
+
+  // If dragging a tab/group, we SHOULD show indicator on any window card (to insert before/after)
+  // But wait, usually dropping ON a card means "add to this window".
+  // Dropping IN BETWEEN cards means "create new window here".
+  // So we need to distinct visual feedback? 
+  // actually, let's treat "dropping on edge" as "new window".
 
   const rect = targetCard.getBoundingClientRect();
   const midX = rect.left + rect.width / 2;
@@ -828,10 +835,6 @@ const throttledWindowDragOverLogic = throttle((event) => {
   } else {
     before = mouseX < midX;
   }
-
-  // Special case: if we found "closest" via reduce, it finds the element *after* cursor.
-  // So if we used getClosestCard, we are likely "before" that card.
-  // But let's rely on the geometry check above which is robust.
 
   updateWindowDropIndicator(targetCard, before);
 }, 50);
@@ -852,7 +855,7 @@ function handleWindowDragOver(event) {
 }
 
 function handleWindowDrop(event) {
-  if (!windowDragContext) {
+  if (!windowDragContext && !dragContext) {
     return;
   }
   event.preventDefault();
@@ -870,29 +873,87 @@ function handleWindowDrop(event) {
     }
   }
 
-  const sourceCard = activeListEl.querySelector(`.card[data-win-id='${windowDragContext.windowId}']`);
-  if (!sourceCard || !targetCard || sourceCard === targetCard) {
-    return;
+  // Determine drop position (before/after targetCard)
+  let before = false;
+  if (targetCard) {
+    const rect = targetCard.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    const mouseY = event.clientY;
+    const mouseX = event.clientX;
+
+    if (mouseY < rect.top) before = true;
+    else if (mouseY > rect.bottom) before = false;
+    else before = mouseX < midX;
   }
 
   clearWindowDropIndicator();
-  const rect = targetCard.getBoundingClientRect();
 
-  // Logic duplication, but safe. 
-  // Ideally share "calculateDropContext(event)"
-  let before = event.clientY < rect.top + rect.height / 2;
+  // Scenario 1: Reordering Windows
+  if (windowDragContext) {
+    const sourceCard = activeListEl.querySelector(`.card[data-win-id='${windowDragContext.windowId}']`);
+    if (!sourceCard || !targetCard || sourceCard === targetCard) {
+      return;
+    }
+    moveElement(sourceCard, targetCard, before);
+    persistWindowOrderFromDom();
+    return;
+  }
 
-  // Refine 'before' logic same as dragOver
-  const midX = rect.left + rect.width / 2;
-  const mouseY = event.clientY;
-  const mouseX = event.clientX;
+  // Scenario 2: Dropping Tabs/Groups to create NEW Window
+  if (dragContext && targetCard) {
+    // We are dropping tabs/groups "between" windows to create a new one.
+    // Calculate insert index.
+    const targetCardIndex = Array.from(activeListEl.children).indexOf(targetCard);
+    // If before, index is targetCardIndex. If after, index is targetCardIndex + 1.
+    const newIndex = before ? targetCardIndex : targetCardIndex + 1;
 
-  if (mouseY < rect.top) before = true;
-  else if (mouseY > rect.bottom) before = false;
-  else before = mouseX < midX;
+    // Delegate to handleMoveToNewWindow or similar logic
+    // existing logic: handleMoveToNewWindow(items, newIndex) ? 
+    // We can reuse the message 'move-to-new-window' passing tabIds or groupId
 
-  moveElement(sourceCard, targetCard, before);
-  persistWindowOrderFromDom();
+    const items = dragContext.tabIds || (dragContext.groupId ? { groupId: dragContext.groupId } : null);
+    if (!items) return; // Should not happen
+
+    // Call backend to create window
+    (async () => {
+      try {
+        let newWindow;
+        if (dragContext.type === 'group') {
+          newWindow = await sendMessage({
+            type: 'move-group-to-new-window',
+            groupId: dragContext.groupId
+          });
+        } else {
+          // Tabs
+          newWindow = await sendMessage({
+            type: 'move-to-new-window',
+            tabIds: dragContext.tabIds
+          });
+        }
+
+        if (newWindow) {
+          // Now we need to insert this new window into our CUSTOM order at newIndex
+          // 1. Get current order
+          const order = await loadWindowOrder(); // or get from DOM
+          // Actually DOM is most up to date usually?
+          const currentDomOrder = Array.from(activeListEl.querySelectorAll('.card'))
+            .map(c => Number(c.dataset.winId));
+
+          // Insert newWindow.id at newIndex
+          currentDomOrder.splice(newIndex, 0, newWindow.id);
+
+          await saveWindowOrder(currentDomOrder);
+
+          // Reload
+          loadActiveWindows();
+          toast('Created new window');
+        }
+      } catch (err) {
+        console.error('Failed to create new window from drop', err);
+        toast('Failed to create window');
+      }
+    })();
+  }
 }
 
 function buildWindowSections(win) {
