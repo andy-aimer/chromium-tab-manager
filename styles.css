@@ -241,7 +241,7 @@ button.danger {
   display: flex;
   align-items: center;
   gap: .35rem;
-
+  background: white;
 }
 
 .tab-item.muted {
