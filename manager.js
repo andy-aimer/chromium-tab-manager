@@ -28,7 +28,18 @@ const applyCardMetaSetting = (show) => {
   } else {
     document.body.classList.add('hide-card-meta');
   }
+}
 };
+
+const closeSettings = () => {
+  settingsModal.setAttribute('hidden', '');
+};
+
+settingsModal?.addEventListener('click', (e) => {
+  if (e.target === settingsModal) {
+    closeSettings();
+  }
+});
 
 settingsBtn?.addEventListener('click', async () => {
   const isHidden = settingsModal.hasAttribute('hidden');
