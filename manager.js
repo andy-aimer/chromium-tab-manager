@@ -20,9 +20,6 @@ const saveSettingsBtn = document.getElementById('save-settings-btn');
 const undoLimitInput = document.getElementById('undo-limit-input');
 
 // Initialize Settings Logic
-// Initialize Settings Logic
-  }
-});
 
 const showCardMetaInput = document.getElementById('show-card-meta-input');
 const applyCardMetaSetting = (show) => {
