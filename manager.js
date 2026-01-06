@@ -1977,9 +1977,24 @@ async function handleTabbedRowDrop(event) {
   }
 }
 
+const toastEl = document.getElementById('toast-notification');
+let toastTimer = null;
+
 function toast(message) {
   if (!message) return;
-  chrome.runtime.sendMessage({ type: 'toast', message }).catch(() => console.warn(message));
+
+  // Also log to background/console
+  chrome.runtime.sendMessage({ type: 'toast', message }).catch(() => { });
+
+  if (toastEl) {
+    toastEl.textContent = message;
+    toastEl.classList.remove('hidden');
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toastEl.classList.add('hidden');
+    }, 3000);
+  }
 }
 
 function colorToHex(color) {

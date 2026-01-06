@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tab Manager</title>
+  <title>Heaps o` Tabs</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
@@ -55,9 +55,9 @@
               <div class="form-group">
                 <label for="undo-limit-input" class="has-tooltip">
                   Undo/Redo History Limit:
-                  <span class="tooltip">Maximum number of actions to store (10-1000).</span>
+                  <span class="tooltip">Maximum number of actions to store (3-100).</span>
                 </label>
-                <input type="number" id="undo-limit-input" min="10" max="1000" step="10" value="50">
+                <input type="number" id="undo-limit-input" min="3" max="100" step="1" value="50">
               </div>
               <div class="form-group checkbox-group">
                 <input type="checkbox" id="show-card-meta-input">
@@ -67,9 +67,13 @@
             </div>
           </div>
         </div>
+
+        <button id="settings-btn" class="icon-button" aria-label="Settings">⚙️</button>
       </div>
-      <button id="settings-btn" class="icon-button" aria-label="Settings">⚙️</button>
-      </div>
+
+      <!-- Toast Notification Area -->
+      <div id="toast-notification" class="toast hidden"></div>
+
 
       <div id="active-list" class="list card-columns"></div>
     </section>
