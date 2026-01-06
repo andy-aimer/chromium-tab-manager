@@ -82,7 +82,8 @@ saveSettingsBtn?.addEventListener('click', async () => {
     toast('Settings saved');
     closeSettings();
   } catch (err) {
-    toast('Failed to save settings');
+    console.error('Save settings error:', err);
+    toast('Failed to save settings: ' + err.message);
   } finally {
     saveSettingsBtn.disabled = false;
   }
