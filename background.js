@@ -813,6 +813,66 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         );
         break;
       }
+      case 'move-to-new-window': {
+        let { kind, groupId, windowId } = message;
+        // Infer kind if not provided
+        if (!kind) {
+          if (message.groupId !== undefined) kind = 'group';
+          else if (message.tabIds && message.tabIds.length > 0) kind = 'tabs';
+          else if (message.tabId) kind = 'tab';
+        }
+
+        // Capture sources
+        let sources = [];
+        let tabIds = [];
+
+        if (kind === 'tab') {
+          tabIds = [message.tabId];
+        } else if (kind === 'tabs') {
+          tabIds = message.tabIds;
+        } else if (kind === 'group') {
+          const groupTabs = await chrome.tabs.query({ groupId });
+          tabIds = groupTabs.map(t => t.id);
+        }
+
+        for (const tid of tabIds) {
+          try {
+            const t = await chrome.tabs.get(tid);
+            sources.push({ tabId: tid, windowId: t.windowId, index: t.index });
+          } catch (e) { /* ignore */ }
+        }
+
+        const command = {
+          type: 'move-to-new-window',
+          timestamp: Date.now(),
+          data: { kind, tabIds, sources }
+        };
+
+        respond(
+          await commandManager.execute(command, async () => {
+            let result;
+            if (kind === 'tab') {
+              result = await chrome.windows.create({ tabId: message.tabId });
+            } else if (kind === 'tabs') {
+              const first = tabIds[0];
+              const others = tabIds.slice(1);
+              result = await chrome.windows.create({ tabId: first });
+              if (others.length) {
+                await chrome.tabs.move(others, { windowId: result.id, index: -1 });
+              }
+            } else if (kind === 'group') {
+              result = await moveGroupToNewWindow(groupId, windowId);
+            } else {
+              throw new Error('Unknown move target');
+            }
+
+            command.data.newWindowId = result.id; // Capture new window ID
+            await refocusManager(sender);
+            return result;
+          })
+        );
+        break;
+      }
       case 'undo':
         try {
           await commandManager.undo();
