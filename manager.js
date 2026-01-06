@@ -331,30 +331,128 @@ document.addEventListener('dragend', () => {
   clearWindowDropIndicator();
 });
 
-document.addEventListener('drop', async event => {
-  if (!dragContext) return;
-  const targetCard = event.target.closest('.card');
-  if (targetCard) return;
+// Unified Drop Handler
+async function handleUnifiedDrop(event) {
+  if (!dragContext && !windowDragContext) return;
   event.preventDefault();
+
+  const target = getDropTarget(event);
+  if (!target) {
+    clearDropIndicator();
+    clearWindowDropIndicator();
+    return;
+  }
+
   try {
-    if (dragContext.kind === 'tab') {
-      await sendMessage({ type: 'move-to-new-window', kind: 'tab', tabId: dragContext.tabId });
-    } else if (dragContext.kind === 'group') {
-      await sendMessage({
-        type: 'move-to-new-window',
-        kind: 'group',
-        groupId: dragContext.groupId,
-        windowId: dragContext.windowId,
-      });
+    const { action, targetId, targetWindowId, position, element } = target;
+
+    if (target.type === 'window-gap') {
+      if (action === 'reorder-window') {
+        const domOrder = Array.from(activeListEl.querySelectorAll('.card')).map(c => Number(c.dataset.winId));
+        const draggedId = windowDragContext.windowId;
+
+        const oldIndex = domOrder.indexOf(draggedId);
+        let newIndex = domOrder.indexOf(targetId);
+        if (position === 'after') newIndex++;
+        // Adjustment if moving down in the list works differently with splice logic
+        // If we remove first, indices shift. 
+        if (oldIndex < newIndex && newIndex > 0) newIndex--;
+
+        if (oldIndex !== newIndex) {
+          domOrder.splice(oldIndex, 1);
+          domOrder.splice(newIndex, 0, draggedId);
+          await saveWindowOrder(domOrder);
+          await loadActiveWindows();
+        }
+      } else if (action === 'create-window') {
+        let payload = { type: 'move-to-new-window' };
+        if (dragContext.kind === 'group') {
+          payload.kind = 'group';
+          payload.groupId = dragContext.groupId;
+        } else {
+          payload.kind = 'tabs';
+          payload.tabIds = dragContext.kind === 'tabs' ? dragContext.tabIds : [dragContext.tabId];
+        }
+
+        const newWin = await sendMessage(payload);
+
+        // Insert window into order
+        if (newWin) {
+          const domOrder = Array.from(activeListEl.querySelectorAll('.card')).map(c => Number(c.dataset.winId));
+          const targetIndex = domOrder.indexOf(targetId);
+          let insertIndex = targetIndex;
+          if (position === 'after') insertIndex++;
+          if (insertIndex === -1) insertIndex = domOrder.length; // Append
+
+          domOrder.splice(insertIndex, 0, newWin.id);
+          await saveWindowOrder(domOrder);
+          await loadActiveWindows();
+          toast('Created new window');
+        }
+      }
+    } else if (target.type === 'window-content' && action === 'move-to-window') {
+      // Move tabs/group to end of target window
+      if (dragContext.kind === 'group') {
+        await sendMessage({ type: 'move-group', groupId: dragContext.groupId, windowId: targetWindowId, index: -1 });
+      } else {
+        const ids = dragContext.kind === 'tabs' ? dragContext.tabIds : [dragContext.tabId];
+        await sendMessage({ type: 'move-tab', tabIds: ids, windowId: targetWindowId, index: -1 });
+      }
+      await loadActiveWindows();
+    } else {
+      // Tab / Group specific actions
+      if (action === 'reorder-tab') {
+        const ids = dragContext.kind === 'tabs' ? dragContext.tabIds : [dragContext.tabId];
+        let index = -1;
+        if (target.type === 'window-content') {
+          index = position === 'start' ? 0 : -1;
+        } else {
+          // Get index of target element
+          const targetIndex = Number(element.dataset.index);
+          index = position === 'before' ? targetIndex : targetIndex + 1;
+        }
+        await sendMessage({ type: 'move-tab', tabIds: ids, windowId: targetWindowId, index });
+        await loadActiveWindows();
+
+      } else if (action === 'reorder-group') {
+        // Move group relative to target group
+        const targetGroupId = targetId;
+        // We need index of target group in the window ??
+        // Current backend `move-group` takes windowId and index.
+        // It's hard to get strict numeric index of a group relative to tabs if we don't have it.
+        // But `manager.js` buildWindowSections builds them.
+        // Wait, `move-group` expects index in tabs list? Yes.
+        // So we need to find the tab index of the target group start/end.
+
+        let index = -1;
+        if (element.matches('.group-header') || element.matches('.group-section')) {
+          const section = element.closest('.group-section');
+          const start = Number(section.dataset.groupStartIndex);
+          const end = Number(section.dataset.groupEndIndex);
+          index = position === 'before' ? start : end + 1;
+        }
+
+        await sendMessage({ type: 'move-group', groupId: dragContext.groupId, windowId: targetWindowId, index });
+        await loadActiveWindows();
+
+      } else if (action === 'merge-to-group') {
+        const ids = dragContext.kind === 'tabs' ? dragContext.tabIds : [dragContext.tabId];
+        await sendMessage({ type: 'assign-group', tabIds: ids, groupId: targetId, windowId: targetWindowId });
+        await loadActiveWindows();
+      }
     }
-    await loadActiveWindows();
   } catch (err) {
     toast(err.message);
+    console.error(err);
   } finally {
     dragContext = null;
+    windowDragContext = null;
     clearDropIndicator();
+    clearWindowDropIndicator();
   }
-});
+}
+
+document.addEventListener('drop', handleUnifiedDrop);
 
 async function sendMessage(payload) {
   const response = await chrome.runtime.sendMessage(payload);
@@ -487,7 +585,7 @@ function createWindowCard(win) {
   header.addEventListener('dragstart', handleWindowDragStart);
   header.addEventListener('dragend', handleWindowDragEnd);
   card.addEventListener('dragover', handleWindowDragOver);
-  card.addEventListener('drop', handleWindowDrop);
+
   const windowCheckbox = createSelectCheckbox('window', { windowId: win.id });
   const titleEl = card.querySelector('.title');
   titleEl.textContent = win.title;
@@ -802,60 +900,7 @@ function getClosestCard(y) {
   }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
-const throttledWindowDragOverLogic = throttle((event) => {
-  // Support both window reordering AND dropping tabs/groups to create new windows
-  if (!windowDragContext && !dragContext) return;
 
-  let targetCard = event.target.closest('.card');
-  const isContainer = event.target === activeListEl || event.target.closest('#active-list');
-
-  // If over container gap, find closest card
-  if (!targetCard && isContainer) {
-    const closest = getClosestCard(event.clientY);
-    if (closest) {
-      targetCard = closest;
-    } else {
-      // If no closest (e.g. at bottom), default to last card?
-      const cards = activeListEl.querySelectorAll('.card');
-      if (cards.length) targetCard = cards[cards.length - 1];
-    }
-  }
-
-  if (!targetCard) {
-    clearWindowDropIndicator();
-    return;
-  }
-
-  const targetId = Number(targetCard.dataset.winId);
-
-  // If dragging a window, don't show indicator on self
-  if (windowDragContext && targetId === windowDragContext.windowId) {
-    return;
-  }
-
-  // If dragging a tab/group, we SHOULD show indicator on any window card (to insert before/after)
-  // But wait, usually dropping ON a card means "add to this window".
-  // Dropping IN BETWEEN cards means "create new window here".
-  // So we need to distinct visual feedback? 
-  // actually, let's treat "dropping on edge" as "new window".
-
-  const rect = targetCard.getBoundingClientRect();
-  const midX = rect.left + rect.width / 2;
-  const midY = rect.top + rect.height / 2;
-  const mouseX = event.clientX;
-  const mouseY = event.clientY;
-
-  let before = false;
-  if (mouseY < rect.top) {
-    before = true;
-  } else if (mouseY > rect.bottom) {
-    before = false;
-  } else {
-    before = mouseX < midX;
-  }
-
-  updateWindowDropIndicator(targetCard, before);
-}, 50);
 
 function handleWindowDragEnd(event) {
   const card = event.target.closest('.card');
@@ -866,11 +911,20 @@ function handleWindowDragEnd(event) {
   clearWindowDropIndicator();
 }
 
-function handleWindowDragOver(event) {
-  event.preventDefault(); // Mandatory for drop
-  event.dataTransfer.dropEffect = 'move';
-  throttledWindowDragOverLogic(event);
-}
+// function handleWindowDragOver(event) {
+//   event.preventDefault(); // Mandatory for drop
+//   event.dataTransfer.dropEffect = 'move';
+//   handleThrottledDragOver(event);
+// }
+
+// Unified handler simplifies this
+const handleWindowDragOver = (event) => {
+  event.preventDefault();
+  handleThrottledDragOver(event);
+};
+
+// Deprecate old throttledWindowDragOverLogic
+const throttledWindowDragOverLogic = handleThrottledDragOver;
 
 function handleWindowDrop(event) {
   if (!windowDragContext && !dragContext) {
@@ -1021,7 +1075,7 @@ function renderGroupSection(win, group, tabs) {
   header.dataset.dropTarget = 'group';
   header.dataset.groupId = group.id;
   header.dataset.windowId = win.id;
-  header.addEventListener('drop', handleGroupDrop);
+
   header.draggable = true;
   header.addEventListener('dragstart', handleGroupChipDragStart);
 
@@ -1189,7 +1243,7 @@ function createTabItem(win, tab) {
 
   item.addEventListener('dragstart', handleTabDragStart);
 
-  item.addEventListener('drop', handleTabDrop);
+
   const focusTab = async event => {
     event.stopPropagation();
     try {
@@ -1402,84 +1456,201 @@ function updateDropIndicator(target, before, isGroup) {
   }, 1000);
 }
 
-const handleThrottledDragOver = throttle(event => {
-  if (!dragContext) return;
-  const target = event.target.closest('.tab-item, .group-section, .tab-list-inner.single, .group-header, .tab-collection');
+// --- Unified Drag & Drop Architecture ---
+
+/**
+ * Calculates the semantic drop target based on mouse position and drag context.
+ * Returns { type, action, targetId, position, element, targetWindowId } or null.
+ */
+function getDropTarget(event) {
+  if (!dragContext && !windowDragContext) return null;
+
+  const clientY = event.clientY;
+  // If dragging a window, we only care about window sorting/gaps
+  const isWindowDrag = !!windowDragContext;
+
+  // 1. Check if we are over the main list container or gaps between windows
+  // This logic takes precedence for "New Window" or "Reorder Window" actions
+  const targetCard = event.target.closest('.card');
+  const isContainer = event.target === activeListEl || event.target.closest('#active-list');
+
+  // Helper to check if we are closer to a gap than inside a card
+  // or if we are strictly in a gap space.
+  // For simplicity, if we are NOT over a card but ARE over/in the container, it's a gap.
+  if (isContainer && !targetCard) {
+    const closest = getClosestCard(clientY);
+
+    if (!closest) {
+      // Empty list or at the very end
+      const cards = activeListEl.querySelectorAll('.card');
+      if (cards.length > 0) {
+        const lastCard = cards[cards.length - 1];
+        const rect = lastCard.getBoundingClientRect();
+        if (clientY > rect.bottom) {
+          return {
+            type: 'window-gap',
+            action: isWindowDrag ? 'reorder-window' : 'create-window',
+            targetId: Number(lastCard.dataset.winId),
+            position: 'after',
+            element: lastCard
+          };
+        }
+      }
+      return null; // Initial empty state handled elsewhere?
+    }
+
+    // Relative to closest card
+    const rect = closest.getBoundingClientRect();
+    const before = clientY < rect.top + rect.height / 2;
+    return {
+      type: 'window-gap',
+      action: isWindowDrag ? 'reorder-window' : 'create-window',
+      targetId: Number(closest.dataset.winId),
+      position: before ? 'before' : 'after',
+      element: closest
+    };
+  }
+
+  // 2. Window Content (Tabs/Groups)
+  if (isWindowDrag) {
+    // Dragging a window OVER another window card -> Reorder
+    if (targetCard) {
+      // If the dragged window IS the target window, ignore
+      const targetWinId = Number(targetCard.dataset.winId);
+      if (windowDragContext.windowId === targetWinId) return null;
+
+      const rect = targetCard.getBoundingClientRect();
+      const before = clientY < rect.top + rect.height / 2;
+      return {
+        type: 'window-gap',
+        action: 'reorder-window',
+        targetId: targetWinId,
+        position: before ? 'before' : 'after',
+        element: targetCard
+      };
+    }
+    return null;
+  }
+
+  // 3. Tab/Group Specific Targets (within a window)
+  // We strictly check specific elements first
+  const targetEl = event.target.closest('.tab-item, .group-header, .tab-list-inner.single, .group-section, .tab-collection');
+
+  if (!targetEl) {
+    // Hovering generic card area (e.g. title bar or empty space inside card)
+    // Append to window
+    if (targetCard) {
+      return {
+        type: 'window-content',
+        action: 'move-to-window',
+        targetWindowId: Number(targetCard.dataset.winId),
+        targetId: Number(targetCard.dataset.winId),
+        position: 'append',
+        element: targetCard
+      };
+    }
+    return null;
+  }
+
+  const rect = targetEl.getBoundingClientRect();
+  const before = clientY < rect.top + rect.height / 2;
+  const targetWindowId = Number(targetEl.closest('.card')?.dataset.winId);
+
+  // A. Tab Item
+  if (targetEl.matches('.tab-item')) {
+    return {
+      type: 'tab',
+      action: 'reorder-tab',
+      targetId: Number(targetEl.dataset.tabId),
+      targetWindowId,
+      position: before ? 'before' : 'after',
+      element: targetEl
+    };
+  }
+
+  // B. Group Header
+  if (targetEl.matches('.group-header')) {
+    // Decide if we are dropping INTO the group or reordering the group itself?
+    // If dragging a GROUP -> Reorder Group
+    // If dragging TAB(s) -> Merge into group
+    const groupId = Number(targetEl.dataset.groupId);
+    const isGroupDrag = dragContext.kind === 'group';
+
+    if (isGroupDrag) {
+      return {
+        type: 'group',
+        action: 'reorder-group',
+        targetId: groupId,
+        targetWindowId,
+        position: before ? 'before' : 'after',
+        element: targetEl
+      };
+    } else {
+      // Merging tabs into group
+      // If we are hovering the header, we likely mean "add to this group"
+      return {
+        type: 'group',
+        action: 'merge-to-group',
+        targetId: groupId,
+        targetWindowId,
+        position: 'append', // Append to group
+        element: targetEl
+      };
+    }
+  }
+
+  // C. Group Section (Empty space in a group or specific drop area)
+  // Actually .group-section contains the header and list. 
+  // If we matched .group-section but NOT .group-header or .tab-item, we are likely at the edge/padding.
+  if (targetEl.matches('.group-section')) {
+    const groupId = Number(targetEl.dataset.groupId);
+    return {
+      type: 'group',
+      action: dragContext.kind === 'group' ? 'reorder-group' : 'merge-to-group',
+      targetId: groupId,
+      targetWindowId,
+      position: before ? 'before' : 'after',
+      element: targetEl
+    };
+  }
+
+  // D. Tab Collection (Root list of window)
+  if (targetEl.matches('.tab-collection')) {
+    // Empty window or at ends
+    return {
+      type: 'window-content',
+      action: 'reorder-tab', // Or generic move
+      targetId: -1, // No specific ref
+      targetWindowId,
+      position: before ? 'start' : 'end',
+      element: targetEl
+    };
+  }
+
+  return null;
+}
+
+// Unified Visual Indicator Update
+function updateUnifiedDropIndicator(target) {
   if (!target) {
     clearDropIndicator();
+    clearWindowDropIndicator();
     return;
   }
-  const isGroup = dragContext.kind === 'group';
-  const isMultiTab = dragContext.kind === 'tabs';
-  const rect = target.getBoundingClientRect();
-  const before = event.clientY < rect.top + rect.height / 2;
-  if (isGroup) {
-    if (target.matches('.tab-item')) {
-      const parentGroup = target.closest('.group-section');
-      if (parentGroup && Number(parentGroup.dataset.groupId) === dragContext.groupId) {
-        clearDropIndicator();
-        return;
-      }
-      updateDropIndicator(target, before, true);
-    } else if (target.matches('.group-section')) {
-      if (Number(target.dataset.groupId) === dragContext.groupId) {
-        clearDropIndicator();
-        return;
-      }
-      updateDropIndicator(target, before, true);
-    } else if (target.matches('.tab-list-inner.single')) {
-      updateDropIndicator(target, before, true);
-    } else if (target.matches('.group-header')) {
-      const parentSection = target.closest('.group-section');
-      if (parentSection && Number(parentSection.dataset.groupId) === dragContext.groupId) {
-        clearDropIndicator();
-        return;
-      }
-      updateDropIndicator(target, true, true);
-    }
+
+  if (target.type === 'window-gap') {
+    clearDropIndicator();
+    updateWindowDropIndicator(target.element, target.position === 'before');
   } else {
-    // Dragging a tab or multiple tabs
-    if (target.matches('.tab-item')) {
-      // For multi-tab drag, don't prevent drop if one of the dragged tabs matches the target
-      if (!isMultiTab && Number(target.dataset.tabId) === dragContext.tabId) {
-        clearDropIndicator();
-        return;
-      }
-      updateDropIndicator(target, before, false);
-    } else if (target.matches('.group-section')) {
-      // For group sections, show indicator based on drop position relative to the group
-      updateDropIndicator(target, before, false);
-    } else if (target.matches('.group-header')) {
-      updateDropIndicator(target, before, false);
-    } else if (target.matches('.tab-collection')) {
-      // Handle dragging over the tab collection container
-      const firstChild = target.firstChild;
-      if (firstChild) {
-        const firstRect = firstChild.getBoundingClientRect();
-        const droppingAtTop = event.clientY < firstRect.top + firstRect.height / 2;
-        if (droppingAtTop) {
-          // Show indicator at the very top
-          updateDropIndicator(target, true, false);
-        } else {
-          // Show indicator at the very bottom
-          const lastChild = target.lastChild;
-          if (lastChild) {
-            const lastRect = lastChild.getBoundingClientRect();
-            const droppingAtBottom = event.clientY > lastRect.bottom - lastRect.height / 2;
-            if (droppingAtBottom) {
-              updateDropIndicator(target, false, false);
-            } else {
-              clearDropIndicator();
-            }
-          }
-        }
-      } else {
-        // Empty collection - show indicator in the middle
-        updateDropIndicator(target, true, false);
-      }
-    }
+    clearWindowDropIndicator();
+    updateDropIndicator(target.element, target.position === 'before' || target.position === 'start', target.type === 'group');
   }
-}, 100);
+}
+
+const handleThrottledDragOver = throttle(event => {
+  const target = getDropTarget(event);
+  updateUnifiedDropIndicator(target);
+}, 50);
 
 function handleTabDragStart(event) {
   const { tabId, windowId, groupId } = event.currentTarget.dataset;
@@ -2640,7 +2811,7 @@ async function buildMoveSubmenu(onSelect, onNewWindowAtIndex) {
 
 // Attach container-level drag listeners
 activeListEl.addEventListener('dragover', handleWindowDragOver);
-activeListEl.addEventListener('drop', handleWindowDrop);
+
 
 // Start the application
 loadAll();
