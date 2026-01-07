@@ -777,31 +777,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       case 'move-tab': {
         const tabIds = Array.isArray(message.tabIds) ? message.tabIds : [message.tabId];
-        // Capture sources
+        const { windowId, index } = message;
+
+        // Capture sources for undo
         const sources = [];
+        for (const tid of tabIds) {
+          try {
+            const t = await chrome.tabs.get(tid);
+            sources.push({ tabId: tid, windowId: t.windowId, index: t.index });
+          } catch (e) { /* ignore */ }
+        }
+
         respond(
           await commandManager.execute(
             {
-              type: 'close-tabs',
+              type: 'move-tab',
               timestamp: Date.now(),
-              data: { tabIds, tabs }
+              data: { tabIds, toWindowId: windowId, toIndex: index, sources }
             },
             async () => {
-              const results = [];
-              for (const tabId of tabIds) {
-                try {
-                  await chrome.tabs.remove(tabId);
-                  results.push({ tabId, success: true });
-                } catch (err) {
-                  results.push({ tabId, success: false, error: err.message || String(err) });
-                }
+              if (tabIds.length > 0) {
+                return await chrome.tabs.move(tabIds, { windowId, index });
               }
-              return results;
             }
           )
         );
         break;
       }
+
+      case 'close-tabs': {
+        const { tabIds } = message;
+        const tabs = [];
+        // Helper to get tab details before closing for undo?
+        // For now simpler version
+        respond(
+          await commandManager.execute(
+            {
+              type: 'close-tabs',
+              timestamp: Date.now(),
+              data: { tabIds }
+            },
+            async () => {
+              await chrome.tabs.remove(tabIds);
+            }
+          )
+        );
+        break;
+      }
+
       case 'create-window': {
         const command = { type: 'create-window', timestamp: Date.now(), data: {} };
         respond(
