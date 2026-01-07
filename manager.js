@@ -544,7 +544,9 @@ async function loadActiveWindows() {
       activeListEl.appendChild(card);
     } else {
       // Create new
-      card = createWindowCard(win);
+      // Create new
+      const frag = createWindowCard(win);
+      card = frag.querySelector('.card');
       if (win.lastAccessed) card.dataset.lastAccessed = win.lastAccessed;
 
       const orderKeyEl = card.querySelector('.card-order-key');
@@ -553,7 +555,7 @@ async function loadActiveWindows() {
       const titleEl = card.querySelector('.title');
       if (titleEl) titleEl.textContent = win.title;
 
-      activeListEl.appendChild(card);
+      activeListEl.appendChild(frag);
 
       // Auto-expand if active (initial load logic, but good to keep consistent)
       if (win.focused) {
