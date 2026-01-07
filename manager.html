@@ -85,10 +85,13 @@
   <template id="window-template">
     <article class="card">
       <div class="card-meta">
-        <div class="card-order-key"></div>
+        <!-- Moved order key -->
       </div>
       <div class="card-header">
-        <button class="toggle-tabs toggle-tabs-left" aria-label="Toggle tabs">▴</button>
+        <div class="toggle-wrapper">
+          <button class="toggle-tabs toggle-tabs-left" aria-label="Toggle tabs">▴</button>
+          <div class="card-order-key"></div>
+        </div>
 
         <div class="card-title">
           <h3 class="title"></h3>
