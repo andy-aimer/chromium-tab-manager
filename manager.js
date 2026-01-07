@@ -524,6 +524,7 @@ async function loadActiveWindows() {
 
     if (card) {
       // Update existing
+      if (win.lastAccessed) card.dataset.lastAccessed = win.lastAccessed;
       const orderKeyEl = card.querySelector('.card-order-key');
       if (orderKeyEl) orderKeyEl.textContent = orderKeyText;
 
@@ -544,6 +545,7 @@ async function loadActiveWindows() {
     } else {
       // Create new
       card = createWindowCard(win);
+      if (win.lastAccessed) card.dataset.lastAccessed = win.lastAccessed;
 
       const orderKeyEl = card.querySelector('.card-order-key');
       if (orderKeyEl) orderKeyEl.textContent = orderKeyText;
@@ -1483,7 +1485,7 @@ function createTabItem(win, tab) {
 }
 
 function applyTraceHistory() {
-  const items = Array.from(document.querySelectorAll('.tab-item')).filter(item => !item.classList.contains('muted'));
+  const items = Array.from(document.querySelectorAll('.tab-item, .card')).filter(item => !item.classList.contains('muted'));
   if (!traceHistoryToggle?.checked) {
     items.forEach(item => {
       item.style.backgroundColor = '';
@@ -1500,6 +1502,18 @@ function applyTraceHistory() {
   ranked.forEach((entry, index) => {
     const ratio = total > 1 ? index / (total - 1) : 0;
     entry.item.style.backgroundColor = interpolateHistoryColor(ratio);
+    if (entry.item.classList.contains('card')) {
+      // Apply slightly different styling or same?
+      // Let's apply same but maybe subtle?
+      // entry.item.style.backgroundColor = interpolateHistoryColor(ratio);
+      // Standard cards have bg #f1f5f9.
+      // Interpolate from that to gray/dark?
+      // Or just use the same scale?
+      // The scale is white -> gray.
+      entry.item.style.backgroundColor = interpolateHistoryColor(ratio);
+    } else {
+      entry.item.style.backgroundColor = interpolateHistoryColor(ratio);
+    }
   });
 }
 

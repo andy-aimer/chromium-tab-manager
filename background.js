@@ -355,15 +355,24 @@ async function getOrderedActiveWindowsLight() {
 }
 
 async function getActiveWindowsLight() {
-  const windows = await chrome.windows.getAll({ populate: false, windowTypes: ['normal'] });
+  const windows = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
   const titles = await loadWindowTitles();
-  return windows.map(win => ({
-    id: win.id,
-    title: titles[win.id] || win.title || 'Window',
-    focused: win.focused,
-    tabs: [],
-    groups: [],
-  }));
+  return windows.map(win => {
+    // Calculate lastAccessed from tabs
+    let lastAccessed = 0;
+    if (win.tabs && win.tabs.length) {
+      lastAccessed = Math.max(...win.tabs.map(t => t.lastAccessed || 0));
+    }
+
+    return {
+      id: win.id,
+      title: titles[win.id] || win.title || 'Window',
+      focused: win.focused,
+      tabs: [], // Keep payload light
+      groups: [],
+      lastAccessed
+    };
+  });
 }
 
 async function getWindowDetails(windowId) {
