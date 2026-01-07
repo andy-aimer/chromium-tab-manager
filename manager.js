@@ -844,8 +844,7 @@ async function loadWindowDetails(windowId, card) {
     const metaEl = card.querySelector('.meta');
     metaEl.textContent = `${win.tabs.length} tab(s)`;
 
-    const metaEl = card.querySelector('.meta');
-    metaEl.textContent = `${win.tabs.length} tab(s)`;
+
 
     container.innerHTML = '';
 
