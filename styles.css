@@ -778,3 +778,49 @@ menu {
   font-weight: bold;
   margin-top: -2px;
 }
+
+/* Interactive Toggle */
+.interactive-toggle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  user-select: none;
+}
+.interactive-toggle:hover {
+  opacity: 1;
+}
+.interactive-checkbox {
+  display: none;
+}
+.interactive-checkbox:checked + .toggle-icon {
+  filter: grayscale(0);
+  opacity: 1;
+  text-shadow: 0 0 5px rgba(0,0,0,0.2);
+}
+.toggle-icon {
+  font-size: 1.1rem;
+  filter: grayscale(100%);
+  transition: filter 0.2s;
+}
+
+/* Read-Only List Styles */
+.read-only-list {
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  color: #444;
+}
+.read-only-item {
+  padding: 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+.read-only-group-header {
+  font-weight: bold;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}

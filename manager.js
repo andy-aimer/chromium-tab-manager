@@ -602,6 +602,21 @@ function createWindowCard(win) {
   const actions = card.querySelector('.card-actions');
   actions.replaceChildren();
 
+  // Interactive Toggle Logic
+  const interactiveToggle = card.querySelector('.interactive-checkbox');
+  if (interactiveToggle) {
+    const isInteractive = windowInteractionState.get(win.id) || false;
+    interactiveToggle.checked = isInteractive;
+    interactiveToggle.addEventListener('change', () => {
+      windowInteractionState.set(win.id, interactiveToggle.checked);
+      // Reload content if expanded
+      const container = card.querySelector('.tab-list');
+      if (container && !container.hasAttribute('hidden')) {
+        loadWindowDetails(win.id, card);
+      }
+    });
+  }
+
   // Create save markdown icon button
   const saveBtn = document.createElement('button');
   saveBtn.className = 'icon-button';
@@ -773,6 +788,43 @@ function createWindowCard(win) {
   return frag;
 }
 
+// State to track window interactive mode (default: false for Read-Only)
+const windowInteractionState = new Map(); // windowId -> boolean
+
+function renderReadOnlyWindowContent(win, container) {
+  container.innerHTML = '';
+  const list = document.createElement('div');
+  list.className = 'read-only-list';
+
+  // Efficiently render plain text
+  const fragment = document.createDocumentFragment();
+
+  // Helper
+  const createItem = (title) => {
+    const div = document.createElement('div');
+    div.className = 'read-only-item';
+    div.textContent = title || 'Untitled Tab';
+    return div;
+  };
+
+  buildWindowSections(win).forEach(section => {
+    if (section.type === 'group') {
+      const header = document.createElement('div');
+      header.className = 'read-only-group-header';
+      header.textContent = `[Group] ${section.group.title || 'Untitled Group'}`;
+      header.style.color = colorToHex(section.group.color);
+      fragment.appendChild(header);
+
+      section.tabs.forEach(tab => fragment.appendChild(createItem(tab.title)));
+    } else {
+      fragment.appendChild(createItem(section.tab.title));
+    }
+  });
+
+  list.appendChild(fragment);
+  container.appendChild(list);
+}
+
 async function loadWindowDetails(windowId, card) {
   const container = card.querySelector('.tab-list');
   // Only show loading if we don't have content, to prevent flash on reload
@@ -792,7 +844,19 @@ async function loadWindowDetails(windowId, card) {
     const metaEl = card.querySelector('.meta');
     metaEl.textContent = `${win.tabs.length} tab(s)`;
 
+    const metaEl = card.querySelector('.meta');
+    metaEl.textContent = `${win.tabs.length} tab(s)`;
+
     container.innerHTML = '';
+
+    // Check interaction state
+    const isInteractive = windowInteractionState.get(windowId) || false;
+    if (!isInteractive) {
+      renderReadOnlyWindowContent(win, container);
+      container.dataset.loaded = 'true';
+      return;
+    }
+
     buildWindowSections(win).forEach(section => {
       if (section.type === 'group') {
         container.appendChild(renderGroupSection(win, section.group, section.tabs));
