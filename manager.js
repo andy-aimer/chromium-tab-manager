@@ -201,44 +201,111 @@ saveAllBtn.addEventListener('click', async () => {
   }
 });
 
-saveSessionBtn.addEventListener('click', async () => {
-  saveSessionBtn.disabled = true;
-  try {
-    const checkedWindows = Array.from(document.querySelectorAll("input[data-select-kind='window']:checked"));
-    const windowIds = checkedWindows.map(cb => Number(cb.dataset.windowId));
+// --- Session Manager UI ---
+const sessionsModal = document.getElementById('sessions-modal');
+const closeSessionsBtn = document.getElementById('close-sessions-btn');
+const saveCurrentSessionBtn = document.getElementById('save-current-session-btn');
+const newSessionNameInput = document.getElementById('new-session-name');
+const sessionListEl = document.getElementById('session-list');
+const sessionItemTemplate = document.getElementById('session-item-template');
 
-    if (!windowIds.length) {
-      toast('Select at least one window to export.');
-      return;
-    }
+// Open Sessions Modal (Replacing old export functionality on this button for now, or we can separate them)
+// The user asked to "restore ability to save/load session data", usually implying internal persistence.
+// We can rename the button in HTML to "Sessions" later.
+saveSessionBtn.addEventListener('click', () => {
+  loadSessionsList();
+  sessionsModal.showModal();
+});
 
-    // Collect tabs only from selected windows
-    let allTabIds = [];
-    // If cache is empty, we might need to load it (edge case), but usually it's there.
-    if (!activeWindowsCache.length) {
-      activeWindowsCache = await sendMessage({ type: 'get-active' });
-      activeWindowMap = new Map(activeWindowsCache.map(w => [w.id, w]));
-    }
+closeSessionsBtn.addEventListener('click', () => {
+  sessionsModal.close();
+});
 
-    windowIds.forEach(wid => {
-      const win = activeWindowMap.get(wid);
-      if (win && win.tabs) {
-        allTabIds.push(...win.tabs.map(t => t.id));
+sessionsModal.addEventListener('click', (e) => {
+  if (e.target === sessionsModal) sessionsModal.close();
+});
+
+async function loadSessionsList() {
+  const sessions = await sendMessage({ type: 'get-sessions' });
+  renderSessionList(sessions);
+}
+
+function renderSessionList(sessions) {
+  sessionListEl.innerHTML = '';
+  if (!sessions || sessions.length === 0) {
+    sessionListEl.innerHTML = '<div class="empty-state">No saved sessions found.</div>';
+    return;
+  }
+
+  sessions.forEach(session => {
+    const clone = sessionItemTemplate.content.cloneNode(true);
+    const item = clone.querySelector('.session-item');
+
+    const nameEl = item.querySelector('.session-name');
+    nameEl.textContent = session.name;
+
+    // Rename logic
+    const editBtn = item.querySelector('.edit-name-btn');
+    editBtn.addEventListener('click', () => {
+      const newName = prompt('Enter new session name:', session.name);
+      if (newName && newName.trim()) {
+        sendMessage({ type: 'rename-session', sessionId: session.id, newName: newName.trim() })
+          .then(updatedSessions => renderSessionList(updatedSessions));
       }
     });
 
-    if (!allTabIds.length) {
-      toast('No tabs found in selected windows.');
-      return;
-    }
+    item.querySelector('.session-date').textContent = new Date(session.createdAt).toLocaleDateString() + ' ' + new Date(session.createdAt).toLocaleTimeString();
+    item.querySelector('.session-count').textContent = `${session.windowCount} Windows, ${session.tabCount} Tabs`;
 
-    await saveMarkdownForTabIds(allTabIds);
+    const loadBtn = item.querySelector('.load-session-btn');
+    loadBtn.addEventListener('click', async () => {
+      if (confirm(`Restore session "${session.name}"? This will open new windows.`)) {
+        await sendMessage({ type: 'restore-session', sessionId: session.id });
+        toast('Session restored!');
+        sessionsModal.close();
+      }
+    });
+
+    const deleteBtn = item.querySelector('.delete-session-btn');
+    deleteBtn.addEventListener('click', async () => {
+      if (confirm(`Delete session "${session.name}"?`)) {
+        const updated = await sendMessage({ type: 'delete-session', sessionId: session.id });
+        renderSessionList(updated);
+        toast('Session deleted');
+      }
+    });
+
+    sessionListEl.appendChild(item);
+  });
+}
+
+saveCurrentSessionBtn.addEventListener('click', async () => {
+  const name = newSessionNameInput.value.trim() || `Session ${new Date().toLocaleString()}`;
+
+  // Get current active windows state
+  let windowsToSave = activeWindowsCache;
+  if (!windowsToSave || !windowsToSave.length) {
+    windowsToSave = await sendMessage({ type: 'get-active' });
+  }
+
+  try {
+    saveCurrentSessionBtn.disabled = true;
+    await sendMessage({
+      type: 'save-session',
+      name,
+      windows: windowsToSave
+    });
+
+    newSessionNameInput.value = '';
+    toast('Session saved successfully');
+    loadSessionsList(); // Refresh list
   } catch (err) {
-    toast(err.message);
+    toast('Failed to save session: ' + err.message);
   } finally {
-    saveSessionBtn.disabled = false;
+    saveCurrentSessionBtn.disabled = false;
   }
 });
+
 
 expandAllBtn.addEventListener('click', () => {
   const cards = document.querySelectorAll('.card');

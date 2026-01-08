@@ -949,3 +949,80 @@ menu {
   margin-left: auto;
   max-width: 40%;
 }
+/* Sessions Modal */
+#sessions-modal {
+  width: 500px;
+  max-width: 90vw;
+}
+
+.new-session-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+
+.new-session-form input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.session-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.session-info {
+  flex: 1;
+}
+
+.session-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.session-name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.session-meta {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.load-session-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.load-session-btn:hover {
+  background: #2563eb;
+}

@@ -6,6 +6,65 @@ const SETTINGS_KEY = 'tab-manager:settings';
 const MANAGER_URL = chrome.runtime.getURL('manager.html');
 let storagePromise = Promise.resolve();
 
+// --- Session Manager ---
+
+class SessionManager {
+  static async getSessions() {
+    const data = await chrome.storage.local.get('sessions');
+    return data.sessions || [];
+  }
+
+  static async saveSession(name, windows) {
+    const sessions = await this.getSessions();
+    const newSession = {
+      id: Date.now().toString(), // Simple ID
+      name: name || `Session ${new Date().toLocaleString()}`,
+      createdAt: Date.now(),
+      windows: windows.map(win => ({
+        tabs: win.tabs.map(t => ({ url: t.url, title: t.title, pinned: t.pinned, favicon: t.favicon })),
+        // TODO: Persist groups structure if needed
+      })),
+      tabCount: windows.reduce((acc, w) => acc + (w.tabs ? w.tabs.length : 0), 0),
+      windowCount: windows.length
+    };
+
+    sessions.unshift(newSession); // Add to top
+    await chrome.storage.local.set({ sessions });
+    return newSession;
+  }
+
+  static async deleteSession(sessionId) {
+    let sessions = await this.getSessions();
+    sessions = sessions.filter(s => s.id !== sessionId);
+    await chrome.storage.local.set({ sessions });
+    return sessions;
+  }
+
+  static async renameSession(sessionId, newName) {
+    const sessions = await this.getSessions();
+    const session = sessions.find(s => s.id === sessionId);
+    if (session) {
+      session.name = newName;
+      await chrome.storage.local.set({ sessions });
+    }
+    return sessions;
+  }
+
+  static async restoreSession(sessionId) {
+    const sessions = await this.getSessions();
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) throw new Error('Session not found');
+
+    for (const winData of session.windows) {
+      if (!winData.tabs || winData.tabs.length === 0) continue;
+
+      const urls = winData.tabs.map(t => t.url);
+      await chrome.windows.create({ url: urls, focused: true });
+    }
+  }
+}
+
+// --- Command Manager ---
 class CommandManager {
   constructor() {
     this.undoStack = [];

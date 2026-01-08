@@ -34,7 +34,7 @@
 
           <button id="minimize-all-btn">Minimize All</button>
           <button id="expand-all-btn">Expand All</button>
-          <button id="save-session-btn">Export Selected</button>
+          <button id="save-session-btn">Sessions</button>
           <button id="save-all-btn" class="primary">Export All</button>
           <label class="column-picker">Columns
             <select id="column-count">
@@ -128,6 +128,45 @@
 
   <div id="context-menu"></div>
   <div id="toast-container"></div>
+  <dialog id="sessions-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Saved Sessions</h3>
+        <button id="close-sessions-btn" class="icon-button close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="new-session-form">
+          <input type="text" id="new-session-name" placeholder="Enter session name..." />
+          <button id="save-current-session-btn" class="primary">Save Current State</button>
+        </div>
+        <div class="divider"></div>
+        <div id="session-list" class="session-list">
+          <!-- Session items will be injected here -->
+          <div class="empty-state">No saved sessions found.</div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <template id="session-item-template">
+    <div class="session-item">
+      <div class="session-info">
+        <div class="session-name-row">
+          <span class="session-name">Work Setup</span>
+          <button class="icon-button small edit-name-btn" title="Rename">✎</button>
+        </div>
+        <div class="session-meta">
+          <span class="session-date">Jan 12, 10:30 AM</span> •
+          <span class="session-count">3 Windows, 14 Tabs</span>
+        </div>
+      </div>
+      <div class="session-actions">
+        <button class="load-session-btn">Restores</button>
+        <button class="icon-button danger delete-session-btn" title="Delete">🗑️</button>
+      </div>
+    </div>
+  </template>
+
   <script src="manager.js" type="module"></script>
 </body>
 
