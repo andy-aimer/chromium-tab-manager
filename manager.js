@@ -908,7 +908,8 @@ function createWindowCard(win) {
   });
 
   // Auto-expand if window is focused
-  if (win.focused) {
+  // Auto-expand all windows (User Preference)
+  if (true) {
     const targetContainer = card.querySelector('.tab-list');
     if (targetContainer) {
       targetContainer.removeAttribute('hidden');
