@@ -602,21 +602,28 @@ function createWindowCard(win) {
   metaEl.textContent = `... tabs`; // Placeholder
 
   const actions = card.querySelector('.card-actions');
-  actions.replaceChildren();
+  // Preserve the toggle from the template before clearing
+  const interactiveToggleLabel = actions.querySelector('.interactive-toggle');
+
+  actions.replaceChildren(); // Clears template content
 
   // Interactive Toggle Logic
-  const interactiveToggle = card.querySelector('.interactive-checkbox');
-  if (interactiveToggle) {
-    const isInteractive = windowInteractionState.get(win.id) || false;
-    interactiveToggle.checked = isInteractive;
-    interactiveToggle.addEventListener('change', () => {
-      windowInteractionState.set(win.id, interactiveToggle.checked);
-      // Reload content if expanded
-      const container = card.querySelector('.tab-list');
-      if (container && !container.hasAttribute('hidden')) {
-        loadWindowDetails(win.id, card);
-      }
-    });
+  if (interactiveToggleLabel) {
+    const interactiveToggle = interactiveToggleLabel.querySelector('.interactive-checkbox');
+    if (interactiveToggle) {
+      const isInteractive = windowInteractionState.get(win.id) || false;
+      interactiveToggle.checked = isInteractive;
+      interactiveToggle.addEventListener('change', () => {
+        windowInteractionState.set(win.id, interactiveToggle.checked);
+        // Reload content if expanded
+        const container = card.querySelector('.tab-list');
+        if (container && !container.hasAttribute('hidden')) {
+          loadWindowDetails(win.id, card);
+        }
+      });
+    }
+    // Re-append the toggle
+    actions.appendChild(interactiveToggleLabel);
   }
 
   // Create save markdown icon button
