@@ -898,7 +898,14 @@ menu {
 
 /* Icon Styles */
 /* Icon Styles */
-.icon-button svg,
+.icon-button svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5;
+}
+
 .toggle-tabs svg,
 .toggle-icon svg {
   width: 18px;
