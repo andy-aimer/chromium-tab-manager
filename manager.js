@@ -832,10 +832,35 @@ function renderReadOnlyWindowContent(win, container) {
   const fragment = document.createDocumentFragment();
 
   // Helper
-  const createItem = (title) => {
+  // Helper
+  const createItem = (tab) => {
     const div = document.createElement('div');
     div.className = 'read-only-item';
-    div.textContent = title || 'Untitled Tab';
+
+    if (tab.favIconUrl) {
+      const img = document.createElement('img');
+      img.src = tab.favIconUrl;
+      img.className = 'read-only-favicon';
+      img.onerror = () => img.style.display = 'none'; // Hide if broken
+      div.appendChild(img);
+    }
+
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = tab.title || 'Untitled Tab';
+    div.appendChild(titleSpan);
+
+    if (tab.url) {
+      const urlSpan = document.createElement('span');
+      urlSpan.className = 'read-only-url';
+      try {
+        const u = new URL(tab.url);
+        urlSpan.textContent = u.hostname;
+      } catch (e) {
+        // Fallback or leave empty
+      }
+      div.appendChild(urlSpan);
+    }
+
     return div;
   };
 
@@ -847,9 +872,9 @@ function renderReadOnlyWindowContent(win, container) {
       header.style.color = colorToHex(section.group.color);
       fragment.appendChild(header);
 
-      section.tabs.forEach(tab => fragment.appendChild(createItem(tab.title)));
+      section.tabs.forEach(tab => fragment.appendChild(createItem(tab)));
     } else {
-      fragment.appendChild(createItem(section.tab.title));
+      fragment.appendChild(createItem(section.tab));
     }
   });
 

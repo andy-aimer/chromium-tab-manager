@@ -902,3 +902,28 @@ menu {
 .icon-button.danger:hover svg {
   stroke: #ef4444; /* red-500 */
 }
+
+.read-only-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.read-only-favicon {
+  width: 14px;
+  height: 14px;
+  filter: grayscale(100%);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.read-only-url {
+  font-size: 0.75rem;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: auto;
+  max-width: 40%;
+}
