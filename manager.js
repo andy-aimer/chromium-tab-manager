@@ -2262,22 +2262,30 @@ async function handleTabbedRowDrop(event) {
   }
 }
 
-const toastEl = document.getElementById('toast-notification');
-let toastTimer = null;
+const toastContainer = document.getElementById('toast-container');
 
-function toast(message) {
+function toast(message, type = 'info', duration = 3000) {
   if (!message) return;
+  // Log to background as well?
+  // chrome.runtime.sendMessage({ type: 'toast', message }).catch(() => { });
 
-  // Also log to background/console
-  chrome.runtime.sendMessage({ type: 'toast', message }).catch(() => { });
+  if (!toastContainer) {
+    console.log(`[Toast ${type}]: ${message}`);
+    return;
+  }
 
-  if (toastEl) {
-    toastEl.textContent = message;
-    toastEl.classList.remove('hidden');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = message;
 
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      toastEl.classList.add('hidden');
+  toastContainer.appendChild(el);
+
+  // Remove after duration
+  setTimeout(() => {
+    el.classList.add('hide');
+    el.addEventListener('transitionend', () => el.remove());
+  }, duration);
+}
     }, 3000);
   }
 }
