@@ -876,36 +876,39 @@ function renderInteractiveWindowContent(win, container) {
   // Track rendering state on container to allow cancellation
   if (container._renderId) cancelIdleCallback(container._renderId);
 
+  // Start rendering
+  // Add loading indicator
+  const loader = document.createElement('div');
+  loader.className = 'chunk-loader';
+  loader.textContent = 'Loading more items...';
+  container.appendChild(loader);
+
   const renderChunk = (deadline) => {
-    // Stop if container is hidden or removed (simple check)
+    // Stop if container is hidden or removed
     if (!container.isConnected || container.hasAttribute('hidden')) return;
 
-    while (sectionIndex < sections.length && deadline.timeRemaining() > 1) {
-      // Render a small batch of sections (tabs/groups)
-      // Note: A 'section' can be a single tab or a whole group.
-      // Groups might be large, so ideally we should chunk *within* groups too, 
-      // but for now, let's treat groups as atomic units or split them if needed.
-      // Given the current buildWindowSections, a group section contains all its tabs.
+    // Temporarily remove loader to append items
+    loader.remove();
 
+    while (sectionIndex < sections.length && deadline.timeRemaining() > 1) {
       const section = sections[sectionIndex];
       if (section.type === 'group') {
-        // Render group
         container.appendChild(renderGroupSection(win, section.group, section.tabs));
       } else if (section.type === 'tab') {
-        // Render tab
         container.appendChild(renderSingleTabRow(win, section.tab));
       }
       sectionIndex++;
     }
 
     if (sectionIndex < sections.length) {
+      // Re-append loader at the end
+      container.appendChild(loader);
       container._renderId = requestIdleCallback(renderChunk);
     } else {
       container._renderId = null;
     }
   };
 
-  // Start rendering
   container._renderId = requestIdleCallback(renderChunk);
 }
 
