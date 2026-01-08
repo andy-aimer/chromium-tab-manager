@@ -3,7 +3,19 @@ const refreshBtn = document.getElementById('refresh-btn');
 const saveAllBtn = document.getElementById('save-all-btn');
 const expandAllBtn = document.getElementById('expand-all-btn');
 const saveSessionBtn = document.getElementById('save-session-btn');
+// Heroicons SVGs
+const Icons = {
+  arrowDownTray: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>`,
+  xCircle: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+  rectangleGroup: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 7.125C2.25 6.504 2.754 6 3.375 6h6c.621 0 1.125.504 1.125 1.125v3.75c0 .621-.504 1.125-1.125 1.125h-6a1.125 1.125 0 01-1.125-1.125v-3.75zM14.25 8.625c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-8.25zM3.75 16.125c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-2.25z" /></svg>`,
+  lockOpen: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>`,
+  lockClosed: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>`,
+  chevronDown: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>`,
+  chevronRight: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>`
+};
+
 const windowTemplate = document.getElementById('window-template');
+
 const columnSelect = document.getElementById('column-count');
 const activeCountEl = document.getElementById('active-count');
 const saveMarkdownBtn = document.getElementById('save-markdown-btn');
@@ -610,11 +622,21 @@ function createWindowCard(win) {
   // Interactive Toggle Logic
   if (interactiveToggleLabel) {
     const interactiveToggle = interactiveToggleLabel.querySelector('.interactive-checkbox');
+    const toggleIcon = interactiveToggleLabel.querySelector('.toggle-icon');
+
     if (interactiveToggle) {
+      const updateIcon = (checked) => {
+        if (toggleIcon) toggleIcon.innerHTML = checked ? Icons.lockOpen : Icons.lockClosed;
+      };
+
       const isInteractive = windowInteractionState.get(win.id) || false;
       interactiveToggle.checked = isInteractive;
+      updateIcon(isInteractive);
+
       interactiveToggle.addEventListener('change', () => {
         windowInteractionState.set(win.id, interactiveToggle.checked);
+        updateIcon(interactiveToggle.checked);
+
         // Reload content if expanded
         const container = card.querySelector('.tab-list');
         if (container && !container.hasAttribute('hidden')) {
@@ -630,7 +652,7 @@ function createWindowCard(win) {
   const saveBtn = document.createElement('button');
   saveBtn.className = 'icon-button';
   saveBtn.setAttribute('aria-label', 'Save Markdown');
-  saveBtn.textContent = '📥';
+  saveBtn.innerHTML = Icons.arrowDownTray;
   saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = true;
     try {
@@ -657,7 +679,7 @@ function createWindowCard(win) {
   const closeBtn = document.createElement('button');
   closeBtn.className = 'icon-button danger';
   closeBtn.setAttribute('aria-label', 'Close Selected Tabs');
-  closeBtn.textContent = '🗑️';
+  closeBtn.innerHTML = Icons.xCircle;
   closeBtn.addEventListener('click', async () => {
     closeBtn.disabled = true;
     try {
@@ -686,7 +708,7 @@ function createWindowCard(win) {
   const groupBtn = document.createElement('button');
   groupBtn.className = 'icon-button';
   groupBtn.setAttribute('aria-label', 'Group Selected Tabs');
-  groupBtn.textContent = '🏷️';
+  groupBtn.innerHTML = Icons.rectangleGroup;
   groupBtn.addEventListener('click', async () => {
     groupBtn.disabled = true;
     try {
@@ -749,7 +771,7 @@ function createWindowCard(win) {
   toggleButtons.forEach(toggleBtn => {
     toggleBtn.type = 'button';
     toggleBtn.classList.add('collapsed');
-    toggleBtn.textContent = '▸';
+    toggleBtn.innerHTML = Icons.chevronRight;
     toggleBtn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -761,7 +783,7 @@ function createWindowCard(win) {
         targetContainer.removeAttribute('hidden');
         toggleButtons.forEach(btn => {
           btn.classList.remove('collapsed');
-          btn.textContent = '▾';
+          btn.innerHTML = Icons.chevronDown;
         });
         // Load content if it's not already loaded
         if (!targetContainer.dataset.loaded) {
@@ -771,7 +793,7 @@ function createWindowCard(win) {
         targetContainer.setAttribute('hidden', '');
         toggleButtons.forEach(btn => {
           btn.classList.add('collapsed');
-          btn.textContent = '▸';
+          btn.innerHTML = Icons.chevronRight;
         });
       }
     });
@@ -782,9 +804,10 @@ function createWindowCard(win) {
     const targetContainer = card.querySelector('.tab-list');
     if (targetContainer) {
       targetContainer.removeAttribute('hidden');
+      targetContainer.removeAttribute('hidden');
       toggleButtons.forEach(btn => {
         btn.classList.remove('collapsed');
-        btn.textContent = '▾';
+        btn.innerHTML = Icons.chevronDown;
       });
       // Load content immediately
       loadWindowDetails(win.id, card);
@@ -1446,13 +1469,13 @@ function renderGroupSection(win, group, tabs) {
         list.removeAttribute('hidden');
         toggleButtons.forEach(btn => {
           btn.classList.remove('collapsed');
-          btn.textContent = '▾';
+          btn.innerHTML = Icons.chevronDown;
         });
       } else {
         list.setAttribute('hidden', '');
         toggleButtons.forEach(btn => {
           btn.classList.add('collapsed');
-          btn.textContent = '▸';
+          btn.innerHTML = Icons.chevronRight;
         });
       }
     });

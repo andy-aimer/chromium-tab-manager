@@ -883,3 +883,22 @@ menu {
     transform: translateY(0);
   }
 }
+
+/* Icon Styles */
+.icon-button svg,
+.toggle-tabs svg,
+.toggle-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.icon-button:hover svg {
+  stroke: #2563eb; /* bright-blue */
+}
+
+.icon-button.danger:hover svg {
+  stroke: #ef4444; /* red-500 */
+}
