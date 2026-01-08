@@ -837,9 +837,9 @@ function renderReadOnlyWindowContent(win, container) {
     const div = document.createElement('div');
     div.className = 'read-only-item';
 
-    if (tab.favIconUrl) {
+    if (tab.favicon) {
       const img = document.createElement('img');
-      img.src = tab.favIconUrl;
+      img.src = tab.favicon;
       img.className = 'read-only-favicon';
       img.onerror = () => img.style.display = 'none'; // Hide if broken
       div.appendChild(img);
