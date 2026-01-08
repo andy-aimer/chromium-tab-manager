@@ -2286,9 +2286,7 @@ function toast(message, type = 'info', duration = 3000) {
     el.addEventListener('transitionend', () => el.remove());
   }, duration);
 }
-    }, 3000);
-  }
-}
+
 
 function colorToHex(color) {
   const map = {
