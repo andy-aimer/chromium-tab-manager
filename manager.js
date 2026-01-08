@@ -722,12 +722,10 @@ function createWindowCard(win) {
   metaEl.textContent = `... tabs`; // Placeholder
 
   const actions = card.querySelector('.card-actions');
-  // Preserve the toggle from the template before clearing
-  const interactiveToggleLabel = actions.querySelector('.interactive-toggle');
-
   actions.replaceChildren(); // Clears template content
 
   // Interactive Toggle Logic
+  const interactiveToggleLabel = card.querySelector('.interactive-toggle');
   if (interactiveToggleLabel) {
     const interactiveToggle = interactiveToggleLabel.querySelector('.interactive-checkbox');
     const toggleIcon = interactiveToggleLabel.querySelector('.toggle-icon');
@@ -752,8 +750,6 @@ function createWindowCard(win) {
         }
       });
     }
-    // Re-append the toggle
-    actions.appendChild(interactiveToggleLabel);
   }
 
   // Create save markdown icon button

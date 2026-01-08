@@ -1026,3 +1026,9 @@ menu {
 .load-session-btn:hover {
   background: #2563eb;
 }
+
+.toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
