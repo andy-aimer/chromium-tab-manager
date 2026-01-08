@@ -777,7 +777,7 @@ menu {
   margin-top: -2px;
 }
 
-/* Interactive Toggle */
+
 .interactive-toggle {
   display: flex;
   align-items: center;
@@ -807,7 +807,7 @@ menu {
   transition: filter 0.2s;
 }
 
-/* Read-Only List Styles */
+
 .read-only-list {
   padding: 0.5rem;
   font-size: 0.85rem;
@@ -848,7 +848,7 @@ menu {
   }
 }
 
-/* Toast Notifications */
+
 #toast-container {
   position: fixed;
   bottom: 20px;
@@ -893,8 +893,8 @@ menu {
   }
 }
 
-/* Icon Styles */
-/* Icon Styles */
+
+
 .icon-button svg {
   width: 20px;
   height: 20px;
@@ -914,12 +914,12 @@ menu {
 
 .icon-button:hover svg {
   stroke: #2563eb;
-  /* bright-blue */
+  
 }
 
 .icon-button.danger:hover svg {
   stroke: #ef4444;
-  /* red-500 */
+  
 }
 
 .read-only-item {
@@ -947,7 +947,7 @@ menu {
   max-width: 40%;
 }
 
-/* Sessions Modal */
+
 #sessions-modal {
   width: 500px;
   max-width: 90vw;
@@ -1028,5 +1028,5 @@ menu {
 .toggle-wrapper {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0rem;
 }
