@@ -282,10 +282,51 @@ function renderSessionList(sessions) {
 saveCurrentSessionBtn.addEventListener('click', async () => {
   const name = newSessionNameInput.value.trim() || `Session ${new Date().toLocaleString()}`;
 
-  // Get current active windows state
+  // Get current state
   let windowsToSave = activeWindowsCache;
   if (!windowsToSave || !windowsToSave.length) {
     windowsToSave = await sendMessage({ type: 'get-active' });
+  }
+
+  // --- Filter based on selection ---
+  const checkedWindowInputs = Array.from(document.querySelectorAll("input[data-select-kind='window']:checked"));
+  const checkedTabInputs = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"));
+
+  const hasSelection = checkedWindowInputs.length > 0 || checkedTabInputs.length > 0;
+
+  if (hasSelection) {
+    const selectedWindowIds = new Set(checkedWindowInputs.map(cb => Number(cb.dataset.windowId)));
+    const selectedTabIds = new Set(checkedTabInputs.map(cb => Number(cb.dataset.tabId)));
+
+    // Filter windows: Include if window is checked OR if it contains checked tabs
+    windowsToSave = windowsToSave
+      .map(win => {
+        // If window is explicitly checked, include all its tabs? 
+        // Or should we strict filter?
+        // Let's go with: explicit window check = all tabs. 
+        // Explicit tab check = specific tabs.
+
+        const isWindowChecked = selectedWindowIds.has(win.id);
+
+        // If window is checked, take all tabs. 
+        // If not, take only checked tabs.
+        let tabs = win.tabs;
+        if (!isWindowChecked) {
+          tabs = win.tabs.filter(t => selectedTabIds.has(t.id));
+        }
+
+        // Return new window object if it has tabs to save
+        if (tabs.length > 0) {
+          return { ...win, tabs };
+        }
+        return null;
+      })
+      .filter(Boolean); // Remove nulls (windows with no selected tabs)
+
+    if (windowsToSave.length === 0) {
+      toast('Selection is empty. Nothing to save.');
+      return;
+    }
   }
 
   try {
