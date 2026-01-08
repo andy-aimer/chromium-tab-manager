@@ -201,18 +201,15 @@ button.danger {
   flex: 1;
   text-align: left;
   min-width: 0;
-  order: 1;
 }
 
 .card-actions {
   display: flex;
   gap: .5rem;
-  order: 2;
 }
 
 .select-checkbox {
   margin-left: auto;
-  order: 3;
   width: 0.9rem;
   height: 0.9rem;
   flex: 0 0 1rem;
@@ -949,6 +946,7 @@ menu {
   margin-left: auto;
   max-width: 40%;
 }
+
 /* Sessions Modal */
 #sessions-modal {
   width: 500px;
