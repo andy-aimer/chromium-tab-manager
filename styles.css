@@ -764,6 +764,7 @@ menu {
     transform: scale(1);
   }
 }
+
 .toggle-wrapper {
   display: flex;
   flex-direction: column;
@@ -788,17 +789,21 @@ menu {
   transition: opacity 0.2s;
   user-select: none;
 }
+
 .interactive-toggle:hover {
   opacity: 1;
 }
+
 .interactive-checkbox {
   display: none;
 }
-.interactive-checkbox:checked + .toggle-icon {
+
+.interactive-checkbox:checked+.toggle-icon {
   filter: grayscale(0);
   opacity: 1;
-  text-shadow: 0 0 5px rgba(0,0,0,0.2);
+  text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
 }
+
 .toggle-icon {
   font-size: 1.1rem;
   filter: grayscale(100%);
@@ -811,6 +816,7 @@ menu {
   font-size: 0.85rem;
   color: #444;
 }
+
 .read-only-item {
   padding: 2px 0;
   white-space: nowrap;
@@ -818,6 +824,7 @@ menu {
   text-overflow: ellipsis;
   line-height: 1.4;
 }
+
 .read-only-group-header {
   font-weight: bold;
   margin-top: 4px;
@@ -835,8 +842,13 @@ menu {
 }
 
 @keyframes pulse-loader {
-  from { opacity: 0.5; }
-  to { opacity: 1; }
+  from {
+    opacity: 0.5;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* Toast Notifications */
@@ -856,7 +868,7 @@ menu {
   color: white;
   padding: 10px 16px;
   border-radius: 4px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   font-size: 0.9rem;
   opacity: 0;
   transform: translateY(20px);
@@ -885,22 +897,25 @@ menu {
 }
 
 /* Icon Styles */
+/* Icon Styles */
 .icon-button svg,
 .toggle-tabs svg,
 .toggle-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   stroke: currentColor;
   fill: none;
   stroke-width: 1.5;
 }
 
 .icon-button:hover svg {
-  stroke: #2563eb; /* bright-blue */
+  stroke: #2563eb;
+  /* bright-blue */
 }
 
 .icon-button.danger:hover svg {
-  stroke: #ef4444; /* red-500 */
+  stroke: #ef4444;
+  /* red-500 */
 }
 
 .read-only-item {
@@ -912,10 +927,10 @@ menu {
 }
 
 .read-only-favicon {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   filter: grayscale(100%);
-  opacity: 0.6;
+  opacity: 0.8;
   flex-shrink: 0;
 }
 
