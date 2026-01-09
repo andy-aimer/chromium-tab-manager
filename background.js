@@ -842,6 +842,57 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           )
         );
         break;
+      case 'update-group': {
+        const { groupId, updateProperties } = message;
+        const group = await chrome.tabGroups.get(groupId);
+        // Only capture properties being updated
+        const oldProperties = {};
+        Object.keys(updateProperties).forEach(key => {
+          if (key === 'color') oldProperties.color = group.color;
+          if (key === 'title') oldProperties.title = group.title;
+          if (key === 'collapsed') oldProperties.collapsed = group.collapsed;
+        });
+
+        respond(
+          await commandManager.execute(
+            {
+              type: 'update-group',
+              timestamp: Date.now(),
+              data: { groupId, newProperties: updateProperties, oldProperties }
+            },
+            async () => chrome.tabGroups.update(groupId, updateProperties)
+          )
+        );
+        break;
+      }
+      case 'assign-group': {
+        const { tabIds, groupId, windowId, title, color } = message;
+
+        // Capture logic for undo is tricky because tabs may be in different groups
+        // For now, simpler implementation for new group creation
+        respond(
+          await commandManager.execute(
+            {
+              type: 'assign-group',
+              timestamp: Date.now(),
+              data: { tabIds, groupId, windowId, title, color }
+            },
+            async () => {
+              if (groupId === 'new') {
+                const newGroupId = await chrome.tabs.group({ tabIds });
+                if (title || color) {
+                  await chrome.tabGroups.update(newGroupId, { title, color });
+                }
+                return newGroupId;
+              } else if (groupId === -1) {
+                await chrome.tabs.ungroup(tabIds);
+              } else {
+                await chrome.tabs.group({ tabIds, groupId });
+              }
+            }
+          )
+        );
+        break;
       }
       case 'move-tab': {
         const tabIds = Array.isArray(message.tabIds) ? message.tabIds : [message.tabId];
@@ -890,6 +941,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
           )
         );
+        break;
+        break;
+      }
+
+      case 'save-markdown': {
+        const { tabIds } = message;
+        const results = [];
+
+        const extensionId = chrome.runtime.id;
+
+        for (const tabId of tabIds) {
+          try {
+            const tab = await chrome.tabs.get(tabId);
+            // Sanitize title for filename
+            const safeTitle = (tab.title || 'untitled').replace(/[\/\\:"*?<>|]/g, '_');
+            const filename = `${safeTitle}.md`;
+            const content = `# ${tab.title}\n\nURL: ${tab.url}\n\n`;
+
+            // We use data URL for simple download
+            const blob = new Blob([content], { type: 'text/markdown' });
+            const reader = new FileReader();
+            const dataUrl = await new Promise(resolve => {
+              reader.onload = () => resolve(reader.result);
+              reader.readAsDataURL(blob);
+            });
+
+            await chrome.downloads.download({
+              url: dataUrl,
+              filename: filename,
+              saveAs: false
+            });
+
+            results.push({ success: true, tabId });
+          } catch (e) {
+            results.push({ success: false, tabId, error: e.message });
+          }
+        }
+
+        respond(results);
         break;
       }
 
