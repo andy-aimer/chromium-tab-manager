@@ -397,23 +397,6 @@ async function getActiveWindows() {
   });
 }
 
-async function getOrderedActiveWindowsLight() {
-  const windows = await getActiveWindowsLight();
-  const { [WINDOW_ORDER_KEY]: order = [] } = await chrome.storage.local.get(WINDOW_ORDER_KEY);
-
-  if (!order.length) return windows;
-
-  const indexById = new Map(order.map((id, index) => [id, index]));
-  return windows.sort((a, b) => {
-    const aIndex = indexById.get(a.id);
-    const bIndex = indexById.get(b.id);
-    if (aIndex === undefined && bIndex === undefined) return 0;
-    if (aIndex === undefined) return 1;
-    if (bIndex === undefined) return -1;
-    return aIndex - bIndex;
-  });
-}
-
 async function getActiveWindowsLight() {
   const windows = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
   const titles = await loadWindowTitles();
@@ -432,6 +415,23 @@ async function getActiveWindowsLight() {
       groups: [],
       lastAccessed
     };
+  });
+}
+
+async function getOrderedActiveWindowsLight() {
+  const windows = await getActiveWindowsLight();
+  const { [WINDOW_ORDER_KEY]: order = [] } = await chrome.storage.local.get(WINDOW_ORDER_KEY);
+
+  if (!order.length) return windows;
+
+  const indexById = new Map(order.map((id, index) => [id, index]));
+  return windows.sort((a, b) => {
+    const aIndex = indexById.get(a.id);
+    const bIndex = indexById.get(b.id);
+    if (aIndex === undefined && bIndex === undefined) return 0;
+    if (aIndex === undefined) return 1;
+    if (bIndex === undefined) return -1;
+    return aIndex - bIndex;
   });
 }
 
@@ -512,7 +512,7 @@ async function assignToGroup(message) {
 }
 
 function sanitizeFilename(value) {
-  const cleaned = value.replace(/[\u0000-\u001f<>:\"/\\|?*]+/g, ' ').trim();
+  const cleaned = value.replace(/[\u0000-\u001f<>:"\\|?*]+/g, ' ').trim();
   return cleaned || 'untitled';
 }
 
@@ -583,23 +583,23 @@ async function extractMarkdownFromTab(tabId) {
           return '\n';
         }
         if (tag === 'strong' || tag === 'b') {
-          return `**${renderInlineChildren(node)}**`;
+          return '**' + renderInlineChildren(node) + '**';
         }
         if (tag === 'em' || tag === 'i') {
-          return `*${renderInlineChildren(node)}*`;
+          return '*' + renderInlineChildren(node) + '*';
         }
         if (tag === 'code') {
-          return\`\`${(node.textContent || '').trim()}\`\`;
+          return '`' + (node.textContent || '').trim() + '`';
         }
         if (tag === 'a') {
           const href = node.getAttribute('href') || '';
           const label = renderInlineChildren(node) || href;
-          return href ? `[${label}](${href})` : label;
+          return href ? '[' + label + '](' + href + ')' : label;
         }
         if (tag === 'img') {
           const alt = node.getAttribute('alt') || '';
           const src = node.getAttribute('src') || '';
-          return src ? `![${alt}](${src})` : '';
+          return src ? '![' + alt + '](' + src + ')' : '';
         }
         return renderInlineChildren(node);
       };
@@ -626,22 +626,22 @@ async function extractMarkdownFromTab(tabId) {
         if (tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6') {
           const level = Number(tag[1]);
           const title = renderInlineChildren(node);
-          return title ? `${'#'.repeat(level)} ${title}\n\n` : '';
+          return title ? '#'.repeat(level) + ' ' + title + '\n\n' : '';
         }
         if (tag === 'p') {
           const text = renderInlineChildren(node);
-          return text ? `${text}\n\n` : '';
+          return text ? text + '\n\n' : '';
         }
         if (tag === 'pre') {
           const text = node.textContent || '';
-          return\`\`\`\n${text.replace(/\n{3,}/g, '\n\n')}\n\`\`\`\n\n\`;
+          return '```\n' + text.replace(/\n{3,}/g, '\n\n') + '\n```\n\n';
         }
         if (tag === 'blockquote') {
           const text = renderInlineChildren(node);
           if (!text) {
             return '';
           }
-          return `${text.split('\n').map(line => `> ${line}`).join('\n')}\n\n`;
+          return text.split('\n').map(line => '> ' + line).join('\n') + '\n\n';
         }
         if (tag === 'ul' || tag === 'ol') {
           const items = [];
@@ -651,13 +651,13 @@ async function extractMarkdownFromTab(tabId) {
             if (child.nodeType === Node.ELEMENT_NODE && child.tagName.toLowerCase() === 'li') {
               const content = renderBlock(child, depth + 1).trim();
               if (content) {
-                const prefix = ordered ? `${index}. ` : '- ';
-                items.push(`${'  '.repeat(depth)}${prefix}${content}`);
+                const prefix = ordered ? index + '. ' : '- ';
+                items.push('  '.repeat(depth) + prefix + content);
                 index += 1;
               }
             }
           });
-          return items.length ? `${items.join('\n')}\n\n` : '';
+          return items.length ? items.join('\n') + '\n\n' : '';
         }
         if (tag === 'li') {
           const content = renderInlineChildren(node);
@@ -683,9 +683,9 @@ async function extractMarkdownFromTab(tabId) {
         let markdown = renderBlock(cleaned).replace(/\n{3,}/g, '\n\n').trim();
         const title = document.title || 'Untitled';
         if (markdown) {
-          markdown = `# ${title}\n\n${markdown}`;
+          markdown = '# ' + title + '\n\n' + markdown;
         } else {
-          markdown = `# ${title}\n\n${normalizeText(document.body?.innerText || '')}`;
+          markdown = '# ' + title + '\n\n' + normalizeText(document.body?.innerText || '');
         }
         return { title, markdown };
       } catch (err) {
@@ -709,8 +709,8 @@ async function saveMarkdownForTabs(tabIds) {
         throw new Error('Tab URL is not supported');
       }
       const { title, markdown } = await extractMarkdownFromTab(tabId);
-      const filename = `${sanitizeFilename(title || tab.title || 'untitled')}.md`;
-      const dataUrl = `data:text/markdown;charset=utf-8,${encodeURIComponent(markdown)}`;
+      const filename = sanitizeFilename(title || tab.title || 'untitled') + '.md';
+      const dataUrl = 'data:text/markdown;charset=utf-8,' + encodeURIComponent(markdown);
       await chrome.downloads.download({ url: dataUrl, filename, saveAs: false });
       results.push({ tabId, title, success: true });
     } catch (err) {
@@ -758,7 +758,7 @@ async function refocusManager(sender) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) {
-    console.warn(`Ignoring message from unknown sender: ${sender.id}`);
+    console.warn('Ignoring message from unknown sender: ' + sender.id);
     return false;
   }
   const respond = (data, isError) => {
@@ -847,7 +847,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           )
         );
         break;
-
+      }
       case 'assign-group': {
         const { tabIds, groupId, windowId, title, color } = message;
 
@@ -938,16 +938,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const tab = await chrome.tabs.get(tabId);
             // Sanitize title for filename
             const safeTitle = (tab.title || 'untitled').replace(/[\/\\:"*?<>|]/g, '_');
-            const filename = `${safeTitle}.md`;
-            const content = `# ${tab.title}\n\nURL: ${tab.url}\n\n`;
+            const filename = safeTitle + '.md';
+            const content = '# ' + tab.title + '\n\nURL: ' + tab.url + '\n\n';
 
             // We use data URL for simple download
-            const blob = new Blob([content], { type: 'text/markdown' });
-            const reader = new FileReader();
-            const dataUrl = await new Promise(resolve => {
-              reader.onload = () => resolve(reader.result);
-              reader.readAsDataURL(blob);
-            });
+            const dataUrl = 'data:text/markdown;charset=utf-8,' + encodeURIComponent(content);
 
             await chrome.downloads.download({
               url: dataUrl,
