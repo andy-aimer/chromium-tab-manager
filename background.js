@@ -842,29 +842,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           )
         );
         break;
-      case 'update-group': {
-        const { groupId, updateProperties } = message;
-        const group = await chrome.tabGroups.get(groupId);
-        // Only capture properties being updated
-        const oldProperties = {};
-        Object.keys(updateProperties).forEach(key => {
-          if (key === 'color') oldProperties.color = group.color;
-          if (key === 'title') oldProperties.title = group.title;
-          if (key === 'collapsed') oldProperties.collapsed = group.collapsed;
-        });
 
-        respond(
-          await commandManager.execute(
-            {
-              type: 'update-group',
-              timestamp: Date.now(),
-              data: { groupId, newProperties: updateProperties, oldProperties }
-            },
-            async () => chrome.tabGroups.update(groupId, updateProperties)
-          )
-        );
-        break;
-      }
       case 'assign-group': {
         const { tabIds, groupId, windowId, title, color } = message;
 
