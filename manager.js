@@ -760,17 +760,25 @@ function createWindowCard(win) {
   saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = true;
     try {
-      // Only get checked tabs within this specific window
-      const windowTabIds = (win.tabs || []).map(tab => tab.id).filter(Boolean);
+      // Get checked tabs directly from DOM (trusting the checkboxes)
       const checkedTabIds = Array.from(card.querySelectorAll("input[data-select-kind='tab']:checked"))
-        .map(input => Number(input.dataset.tabId))
-        .filter(tabId => windowTabIds.includes(tabId));
+        .map(input => Number(input.dataset.tabId));
+
+      let targetTabIds = checkedTabIds;
 
       // Smart Save: If nothing selected, save ALL tabs in this window
-      const targetTabIds = checkedTabIds.length > 0 ? checkedTabIds : windowTabIds;
+      if (checkedTabIds.length === 0) {
+        // If win.tabs is empty (light payload), fetch full details
+        let allTabs = win.tabs || [];
+        if (!allTabs.length) {
+          const fullWindow = await sendMessage({ type: 'get-window-details', windowId: win.id });
+          allTabs = fullWindow.tabs || [];
+        }
+        targetTabIds = allTabs.map(t => t.id);
+      }
 
       if (!targetTabIds.length) {
-        toast('No tabs to save in this window.');
+        toast('No tabs found to save.');
         return;
       }
 
@@ -790,11 +798,8 @@ function createWindowCard(win) {
   closeBtn.addEventListener('click', async () => {
     closeBtn.disabled = true;
     try {
-      // Only get checked tabs within this specific window
-      const windowTabIds = (win.tabs || []).map(tab => tab.id).filter(Boolean);
       const checkedTabIds = Array.from(card.querySelectorAll("input[data-select-kind='tab']:checked"))
-        .map(input => Number(input.dataset.tabId))
-        .filter(tabId => windowTabIds.includes(tabId));
+        .map(input => Number(input.dataset.tabId));
 
       if (!checkedTabIds.length) {
         toast('Select at least one tab in this window to close.');
@@ -819,11 +824,8 @@ function createWindowCard(win) {
   groupBtn.addEventListener('click', async () => {
     groupBtn.disabled = true;
     try {
-      // Only get checked tabs within this specific window
-      const windowTabIds = (win.tabs || []).map(tab => tab.id).filter(Boolean);
       const checkedTabIds = Array.from(card.querySelectorAll("input[data-select-kind='tab']:checked"))
-        .map(input => Number(input.dataset.tabId))
-        .filter(tabId => windowTabIds.includes(tabId));
+        .map(input => Number(input.dataset.tabId));
 
       if (!checkedTabIds.length) {
         toast('Select at least one tab in this window to group.');
@@ -946,7 +948,7 @@ function renderReadOnlyWindowContent(win, container) {
     div.className = 'read-only-item';
 
     // Checkbox for selection (Enable Actions)
-    const checkbox = createSelectCheckbox('tab', { tabId: tab.id });
+    const checkbox = createSelectCheckbox('tab', { windowId: win.id, tabId: tab.id });
     div.appendChild(checkbox);
 
     if (tab.favicon) {
