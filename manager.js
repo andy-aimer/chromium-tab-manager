@@ -740,8 +740,17 @@ function createWindowCard(win) {
       updateIcon(isInteractive);
 
       interactiveToggle.addEventListener('change', () => {
+        const interactiveToggleRight = card.querySelector('.toggle-wrapper-right .interactive-checkbox');
+        const toggleIconRight = card.querySelector('.toggle-wrapper-right .toggle-icon');
+        
         windowInteractionState.set(win.id, interactiveToggle.checked);
         updateIcon(interactiveToggle.checked);
+        
+        // Synchronize the right toggle
+        if (interactiveToggleRight) {
+          interactiveToggleRight.checked = interactiveToggle.checked;
+          if (toggleIconRight) toggleIconRight.innerHTML = interactiveToggle.checked ? Icons.lockOpen : Icons.lockClosed;
+        }
 
         // Reload content if expanded
         const container = card.querySelector('.tab-list');
@@ -932,8 +941,17 @@ function createWindowCard(win) {
   updateIconRight(isInteractiveRight);
 
   interactiveToggleRight.addEventListener('change', () => {
+    const interactiveToggleLeft = card.querySelector('.interactive-toggle .interactive-checkbox');
+    const toggleIconLeft = card.querySelector('.interactive-toggle .toggle-icon');
+    
     windowInteractionState.set(win.id, interactiveToggleRight.checked);
     updateIconRight(interactiveToggleRight.checked);
+    
+    // Synchronize the left toggle
+    if (interactiveToggleLeft) {
+      interactiveToggleLeft.checked = interactiveToggleRight.checked;
+      if (toggleIconLeft) toggleIconLeft.innerHTML = interactiveToggleRight.checked ? Icons.lockOpen : Icons.lockClosed;
+    }
 
     // Reload content if expanded
     const container = card.querySelector('.tab-list');

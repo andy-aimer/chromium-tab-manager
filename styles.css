@@ -372,7 +372,7 @@ menu {
   margin-left: auto;
 }
 
-.group-header .toggle-tabs {
+.group-header {
   align-self: flex-start;
 }
 
@@ -578,7 +578,7 @@ menu {
   width: 1rem;
   height: 1rem;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   padding: 0;
   margin: 0;
@@ -587,11 +587,6 @@ menu {
   font-weight: 1200;
   line-height: 1;
   order: 0;
-
-}
-
-.toggle-tabs-right {
-  margin-left: .35rem;
 
 }
 
@@ -780,7 +775,7 @@ menu {
 
 .interactive-toggle {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   cursor: pointer;
   opacity: 0.6;
   transition: opacity 0.2s;
