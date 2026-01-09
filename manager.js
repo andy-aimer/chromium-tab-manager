@@ -1,23 +1,190 @@
 const activeListEl = document.getElementById('active-list');
 const refreshBtn = document.getElementById('refresh-btn');
 const saveAllBtn = document.getElementById('save-all-btn');
+const expandAllBtn = document.getElementById('expand-all-btn');
+const saveSessionBtn = document.getElementById('save-session-btn');
+// Heroicons SVGs
+const Icons = {
+  arrowDownTray: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>`,
+  xCircle: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+  rectangleGroup: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 7.125C2.25 6.504 2.754 6 3.375 6h6c.621 0 1.125.504 1.125 1.125v3.75c0 .621-.504 1.125-1.125 1.125h-6a1.125 1.125 0 01-1.125-1.125v-3.75zM14.25 8.625c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-8.25zM3.75 16.125c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-2.25z" /></svg>`,
+  lockOpen: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>`,
+  lockClosed: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>`,
+  chevronDown: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>`,
+  chevronRight: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>`
+};
+
 const windowTemplate = document.getElementById('window-template');
+
 const columnSelect = document.getElementById('column-count');
 const activeCountEl = document.getElementById('active-count');
 const saveMarkdownBtn = document.getElementById('save-markdown-btn');
 const closeTabsBtn = document.getElementById('close-tabs-btn');
+const undoBtn = document.getElementById('undo-btn');
+const redoBtn = document.getElementById('redo-btn');
 const traceHistoryToggle = document.getElementById('trace-history');
+
+// Settings Elements
+const settingsBtn = document.getElementById('settings-btn');
+const settingsModal = document.getElementById('settings-modal');
+const closeSettingsBtn = document.getElementById('close-settings-btn');
+const saveSettingsBtn = document.getElementById('save-settings-btn');
+const undoLimitInput = document.getElementById('undo-limit-input');
+
+// Initialize Settings Logic
+
+const showCardMetaInput = document.getElementById('show-card-meta-input');
+const applyCardMetaSetting = (show) => {
+  if (show) {
+    document.body.classList.remove('hide-card-meta');
+  } else {
+    document.body.classList.add('hide-card-meta');
+  }
+}
+
+
+const closeSettings = () => {
+  settingsModal.setAttribute('hidden', '');
+};
+
+settingsModal?.addEventListener('click', (e) => {
+  if (e.target === settingsModal) {
+    closeSettings();
+  }
+});
+
+settingsBtn?.addEventListener('click', async () => {
+  const isHidden = settingsModal.hasAttribute('hidden');
+
+  if (!isHidden) {
+    settingsModal.setAttribute('hidden', '');
+    return;
+  }
+
+  undoLimitInput.disabled = true;
+  showCardMetaInput.disabled = true;
+  settingsModal.removeAttribute('hidden');
+
+  try {
+    const settings = await sendMessage({ type: 'get-settings' });
+    if (settings) {
+      if (settings.undoLimit) undoLimitInput.value = settings.undoLimit;
+      // Default true if undefined
+      const showMeta = settings.showCardMeta !== false;
+      showCardMetaInput.checked = showMeta;
+      applyCardMetaSetting(showMeta);
+    }
+  } catch (err) {
+    console.error('Failed to load settings', err);
+    toast('Failed to load settings');
+  } finally {
+    undoLimitInput.disabled = false;
+    showCardMetaInput.disabled = false;
+  }
+});
+
+saveSettingsBtn?.addEventListener('click', async () => {
+  const limit = parseInt(undoLimitInput.value, 10);
+  if (isNaN(limit) || limit < 10 || limit > 1000) {
+    toast('Please enter a valid limit (10-1000)');
+    return;
+  }
+
+  const showMeta = showCardMetaInput.checked;
+
+  saveSettingsBtn.disabled = true;
+  try {
+    await sendMessage({
+      type: 'update-settings',
+      settings: {
+        undoLimit: limit,
+        showCardMeta: showMeta
+      }
+    });
+    applyCardMetaSetting(showMeta);
+    toast('Settings saved');
+    closeSettings();
+  } catch (err) {
+    console.error('Save settings error:', err);
+    toast('Failed to save settings: ' + err.message);
+  } finally {
+    saveSettingsBtn.disabled = false;
+  }
+});
+
+// Initial load of settings style
+(async () => {
+  try {
+    const settings = await sendMessage({ type: 'get-settings' });
+    if (settings) {
+      // Default true
+      applyCardMetaSetting(settings.showCardMeta !== false);
+    }
+  } catch (e) {
+    // ignore
+  }
+})();
+
 
 let dragContext = null;
 let activeWindowsCache = [];
+let activeWindowMap = new Map();
 let windowDragContext = null;
 const WINDOW_ORDER_KEY = 'tab-manager:window-order';
 
 refreshBtn.addEventListener('click', () => loadAll());
-columnSelect.addEventListener('change', e => {
-  document.documentElement.style.setProperty('--column-count', e.target.value);
+
+// Undo/Redo Logic
+async function triggerUndo() {
+  try {
+    await sendMessage({ type: 'undo' });
+    await loadActiveWindows();
+    toast('Undone last action');
+  } catch (err) {
+    if (err.message) toast(err.message);
+  }
+}
+
+async function triggerRedo() {
+  try {
+    await sendMessage({ type: 'redo' });
+    await loadActiveWindows();
+    toast('Redone last action');
+  } catch (err) {
+    if (err.message) toast(err.message);
+  }
+}
+
+undoBtn?.addEventListener('click', triggerUndo);
+redoBtn?.addEventListener('click', triggerRedo);
+
+document.addEventListener('keydown', event => {
+  if ((event.metaKey || event.ctrlKey) && event.key === 'z') {
+    event.preventDefault();
+    if (event.shiftKey) {
+      triggerRedo();
+    } else {
+      triggerUndo();
+    }
+  }
 });
-document.documentElement.style.setProperty('--column-count', columnSelect.value);
+const COLUMN_COUNT_KEY = 'tab-manager:column-count';
+
+columnSelect.addEventListener('change', e => {
+  const val = e.target.value;
+  document.documentElement.style.setProperty('--column-count', val);
+  chrome.storage.local.set({ [COLUMN_COUNT_KEY]: val });
+});
+
+// Load saved column count
+chrome.storage.local.get([COLUMN_COUNT_KEY]).then(({ [COLUMN_COUNT_KEY]: saved }) => {
+  if (saved) {
+    columnSelect.value = saved;
+    document.documentElement.style.setProperty('--column-count', saved);
+  } else {
+    document.documentElement.style.setProperty('--column-count', columnSelect.value);
+  }
+});
 saveAllBtn.addEventListener('click', async () => {
   saveAllBtn.disabled = true;
   try {
@@ -33,6 +200,179 @@ saveAllBtn.addEventListener('click', async () => {
     saveAllBtn.disabled = false;
   }
 });
+
+// --- Session Manager UI ---
+const sessionsModal = document.getElementById('sessions-modal');
+const closeSessionsBtn = document.getElementById('close-sessions-btn');
+const saveCurrentSessionBtn = document.getElementById('save-current-session-btn');
+const newSessionNameInput = document.getElementById('new-session-name');
+const sessionListEl = document.getElementById('session-list');
+const sessionItemTemplate = document.getElementById('session-item-template');
+
+// Open Sessions Modal (Replacing old export functionality on this button for now, or we can separate them)
+// The user asked to "restore ability to save/load session data", usually implying internal persistence.
+// We can rename the button in HTML to "Sessions" later.
+saveSessionBtn.addEventListener('click', () => {
+  loadSessionsList();
+  sessionsModal.showModal();
+});
+
+closeSessionsBtn.addEventListener('click', () => {
+  sessionsModal.close();
+});
+
+sessionsModal.addEventListener('click', (e) => {
+  if (e.target === sessionsModal) sessionsModal.close();
+});
+
+async function loadSessionsList() {
+  const sessions = await sendMessage({ type: 'get-sessions' });
+  renderSessionList(sessions);
+}
+
+function renderSessionList(sessions) {
+  sessionListEl.innerHTML = '';
+  if (!sessions || sessions.length === 0) {
+    sessionListEl.innerHTML = '<div class="empty-state">No saved sessions found.</div>';
+    return;
+  }
+
+  sessions.forEach(session => {
+    const clone = sessionItemTemplate.content.cloneNode(true);
+    const item = clone.querySelector('.session-item');
+
+    const nameEl = item.querySelector('.session-name');
+    nameEl.textContent = session.name;
+
+    // Rename logic
+    const editBtn = item.querySelector('.edit-name-btn');
+    editBtn.addEventListener('click', () => {
+      const newName = prompt('Enter new session name:', session.name);
+      if (newName && newName.trim()) {
+        sendMessage({ type: 'rename-session', sessionId: session.id, newName: newName.trim() })
+          .then(updatedSessions => renderSessionList(updatedSessions));
+      }
+    });
+
+    item.querySelector('.session-date').textContent = new Date(session.createdAt).toLocaleDateString() + ' ' + new Date(session.createdAt).toLocaleTimeString();
+    item.querySelector('.session-count').textContent = `${session.windowCount} Windows, ${session.tabCount} Tabs`;
+
+    const loadBtn = item.querySelector('.load-session-btn');
+    loadBtn.addEventListener('click', async () => {
+      if (confirm(`Restore session "${session.name}"? This will open new windows.`)) {
+        await sendMessage({ type: 'restore-session', sessionId: session.id });
+        toast('Session restored!');
+        sessionsModal.close();
+      }
+    });
+
+    const deleteBtn = item.querySelector('.delete-session-btn');
+    deleteBtn.addEventListener('click', async () => {
+      if (confirm(`Delete session "${session.name}"?`)) {
+        const updated = await sendMessage({ type: 'delete-session', sessionId: session.id });
+        renderSessionList(updated);
+        toast('Session deleted');
+      }
+    });
+
+    sessionListEl.appendChild(item);
+  });
+}
+
+saveCurrentSessionBtn.addEventListener('click', async () => {
+  const name = newSessionNameInput.value.trim() || `Session ${new Date().toLocaleString()}`;
+
+  // Get current state
+  let windowsToSave = activeWindowsCache;
+  if (!windowsToSave || !windowsToSave.length) {
+    windowsToSave = await sendMessage({ type: 'get-active' });
+  }
+
+  // --- Filter based on selection ---
+  const checkedWindowInputs = Array.from(document.querySelectorAll("input[data-select-kind='window']:checked"));
+  const checkedTabInputs = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"));
+
+  const hasSelection = checkedWindowInputs.length > 0 || checkedTabInputs.length > 0;
+
+  if (hasSelection) {
+    const selectedWindowIds = new Set(checkedWindowInputs.map(cb => Number(cb.dataset.windowId)));
+    const selectedTabIds = new Set(checkedTabInputs.map(cb => Number(cb.dataset.tabId)));
+
+    // Filter windows: Include if window is checked OR if it contains checked tabs
+    windowsToSave = windowsToSave
+      .map(win => {
+        // If window is explicitly checked, include all its tabs? 
+        // Or should we strict filter?
+        // Let's go with: explicit window check = all tabs. 
+        // Explicit tab check = specific tabs.
+
+        const isWindowChecked = selectedWindowIds.has(win.id);
+
+        // If window is checked, take all tabs. 
+        // If not, take only checked tabs.
+        let tabs = win.tabs;
+        if (!isWindowChecked) {
+          tabs = win.tabs.filter(t => selectedTabIds.has(t.id));
+        }
+
+        // Return new window object if it has tabs to save
+        if (tabs.length > 0) {
+          return { ...win, tabs };
+        }
+        return null;
+      })
+      .filter(Boolean); // Remove nulls (windows with no selected tabs)
+
+    if (windowsToSave.length === 0) {
+      toast('Selection is empty. Nothing to save.');
+      return;
+    }
+  }
+
+  try {
+    saveCurrentSessionBtn.disabled = true;
+    await sendMessage({
+      type: 'save-session',
+      name,
+      windows: windowsToSave
+    });
+
+    newSessionNameInput.value = '';
+    toast('Session saved successfully');
+    loadSessionsList(); // Refresh list
+  } catch (err) {
+    toast('Failed to save session: ' + err.message);
+  } finally {
+    saveCurrentSessionBtn.disabled = false;
+  }
+});
+
+
+expandAllBtn.addEventListener('click', () => {
+  const cards = document.querySelectorAll('.card');
+  cards.forEach(card => {
+    const toggleBtn = card.querySelector('.toggle-tabs');
+    const list = card.querySelector('.tab-list');
+    if (list && list.hasAttribute('hidden')) {
+      // Simulate a click on the toggle button to reuse logic (lazy load etc)
+      toggleBtn.click();
+    }
+  });
+});
+
+const minimizeAllBtn = document.getElementById('minimize-all-btn');
+minimizeAllBtn.addEventListener('click', () => {
+  const cards = document.querySelectorAll('.card');
+  cards.forEach(card => {
+    const toggleBtn = card.querySelector('.toggle-tabs');
+    const list = card.querySelector('.tab-list');
+    if (list && !list.hasAttribute('hidden')) {
+      // Simulate click to collapse
+      toggleBtn.click();
+    }
+  });
+});
+
 saveMarkdownBtn.addEventListener('click', async () => {
   const selectedTabIds = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"))
     .map(input => Number(input.dataset.tabId))
@@ -55,12 +395,12 @@ closeTabsBtn?.addEventListener('click', async () => {
   const selectedTabIds = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"))
     .map(input => Number(input.dataset.tabId))
     .filter(Boolean);
-  
+
   if (!selectedTabIds.length) {
     toast('Select at least one tab to close.');
     return;
   }
-  
+
   closeTabsBtn.disabled = true;
   try {
     await sendMessage({ type: 'close-tabs', tabIds: selectedTabIds });
@@ -104,37 +444,135 @@ document.addEventListener('dragend', () => {
       draggingElement.classList.remove('dragging');
     }
   }
-  
+
   dragContext = null;
   windowDragContext = null;
   clearDropIndicator();
   clearWindowDropIndicator();
 });
 
-document.addEventListener('drop', async event => {
-  if (!dragContext) return;
-  const targetCard = event.target.closest('.card');
-  if (targetCard) return;
+// Unified Drop Handler
+async function handleUnifiedDrop(event) {
+  if (!dragContext && !windowDragContext) return;
   event.preventDefault();
+
+  const target = getDropTarget(event);
+  if (!target) {
+    clearDropIndicator();
+    clearWindowDropIndicator();
+    return;
+  }
+
   try {
-    if (dragContext.kind === 'tab') {
-      await sendMessage({ type: 'move-to-new-window', kind: 'tab', tabId: dragContext.tabId });
-    } else if (dragContext.kind === 'group') {
-      await sendMessage({
-        type: 'move-to-new-window',
-        kind: 'group',
-        groupId: dragContext.groupId,
-        windowId: dragContext.windowId,
-      });
+    const { action, targetId, targetWindowId, position, element } = target;
+
+    if (target.type === 'window-gap') {
+      if (action === 'reorder-window') {
+        const domOrder = Array.from(activeListEl.querySelectorAll('.card')).map(c => Number(c.dataset.winId));
+        const draggedId = windowDragContext.windowId;
+
+        const oldIndex = domOrder.indexOf(draggedId);
+        let newIndex = domOrder.indexOf(targetId);
+        if (position === 'after') newIndex++;
+        // Adjustment if moving down in the list works differently with splice logic
+        // If we remove first, indices shift. 
+        if (oldIndex < newIndex && newIndex > 0) newIndex--;
+
+        if (oldIndex !== newIndex) {
+          domOrder.splice(oldIndex, 1);
+          domOrder.splice(newIndex, 0, draggedId);
+          await saveWindowOrder(domOrder);
+          await loadActiveWindows();
+        }
+      } else if (action === 'create-window') {
+        let payload = { type: 'move-to-new-window' };
+        if (dragContext.kind === 'group') {
+          payload.kind = 'group';
+          payload.groupId = dragContext.groupId;
+        } else {
+          payload.kind = 'tabs';
+          payload.tabIds = dragContext.kind === 'tabs' ? dragContext.tabIds : [dragContext.tabId];
+        }
+
+        const newWin = await sendMessage(payload);
+
+        // Insert window into order
+        if (newWin) {
+          const domOrder = Array.from(activeListEl.querySelectorAll('.card')).map(c => Number(c.dataset.winId));
+          const targetIndex = domOrder.indexOf(targetId);
+          let insertIndex = targetIndex;
+          if (position === 'after') insertIndex++;
+          if (insertIndex === -1) insertIndex = domOrder.length; // Append
+
+          domOrder.splice(insertIndex, 0, newWin.id);
+          await saveWindowOrder(domOrder);
+          await loadActiveWindows();
+          toast('Created new window');
+        }
+      }
+    } else if (target.type === 'window-content' && action === 'move-to-window') {
+      // Move tabs/group to end of target window
+      if (dragContext.kind === 'group') {
+        await sendMessage({ type: 'move-group', groupId: dragContext.groupId, windowId: targetWindowId, index: -1 });
+      } else {
+        const ids = dragContext.kind === 'tabs' ? dragContext.tabIds : [dragContext.tabId];
+        await sendMessage({ type: 'move-tab', tabIds: ids, windowId: targetWindowId, index: -1 });
+      }
+      await loadActiveWindows();
+    } else {
+      // Tab / Group specific actions
+      if (action === 'reorder-tab') {
+        const ids = dragContext.kind === 'tabs' ? dragContext.tabIds : [dragContext.tabId];
+        let index = -1;
+        if (target.type === 'window-content') {
+          index = position === 'start' ? 0 : -1;
+        } else {
+          // Get index of target element
+          const targetIndex = Number(element.dataset.index);
+          index = position === 'before' ? targetIndex : targetIndex + 1;
+        }
+        await sendMessage({ type: 'move-tab', tabIds: ids, windowId: targetWindowId, index });
+        await loadActiveWindows();
+
+      } else if (action === 'reorder-group') {
+        // Move group relative to target group
+        const targetGroupId = targetId;
+        // We need index of target group in the window ??
+        // Current backend `move-group` takes windowId and index.
+        // It's hard to get strict numeric index of a group relative to tabs if we don't have it.
+        // But `manager.js` buildWindowSections builds them.
+        // Wait, `move-group` expects index in tabs list? Yes.
+        // So we need to find the tab index of the target group start/end.
+
+        let index = -1;
+        if (element.matches('.group-header') || element.matches('.group-section')) {
+          const section = element.closest('.group-section');
+          const start = Number(section.dataset.groupStartIndex);
+          const end = Number(section.dataset.groupEndIndex);
+          index = position === 'before' ? start : end + 1;
+        }
+
+        await sendMessage({ type: 'move-group', groupId: dragContext.groupId, windowId: targetWindowId, index });
+        await loadActiveWindows();
+
+      } else if (action === 'merge-to-group') {
+        const ids = dragContext.kind === 'tabs' ? dragContext.tabIds : [dragContext.tabId];
+        await sendMessage({ type: 'assign-group', tabIds: ids, groupId: targetId, windowId: targetWindowId });
+        await loadActiveWindows();
+      }
     }
-    await loadActiveWindows();
   } catch (err) {
     toast(err.message);
+    console.error(err);
   } finally {
     dragContext = null;
+    windowDragContext = null;
     clearDropIndicator();
+    clearWindowDropIndicator();
   }
-});
+}
+
+document.addEventListener('drop', handleUnifiedDrop);
 
 async function sendMessage(payload) {
   const response = await chrome.runtime.sendMessage(payload);
@@ -187,13 +625,77 @@ function activateInlineRename(targetEl, currentValue, onSave) {
 }
 
 async function loadActiveWindows() {
-  const windows = await sendMessage({ type: 'get-active' });
-  const order = await loadWindowOrder();
-  const sortedWindows = sortWindowsByOrder(windows, order);
+  const sortedWindows = await sendMessage({ type: 'get-ordered-windows-light' });
   activeWindowsCache = sortedWindows;
-  activeListEl.innerHTML = '';
+  activeWindowMap = new Map(sortedWindows.map(w => [w.id, w]));
+
   activeCountEl.textContent = sortedWindows.length ? `${sortedWindows.length} window(s)` : 'No windows';
-  sortedWindows.forEach(win => activeListEl.appendChild(createWindowCard(win)));
+
+  // Granular DOM updates (Efficiency Recommendation #3)
+  const existingCards = new Map();
+  activeListEl.querySelectorAll('.card').forEach(card => {
+    existingCards.set(Number(card.dataset.winId), card);
+  });
+
+  // 1. Update or Create
+  sortedWindows.forEach((win, index) => {
+    let card = existingCards.get(win.id);
+    const orderKeyText = `[${index + 1}]`;
+
+    if (card) {
+      // Update existing
+      if (win.lastAccessed) card.dataset.lastAccessed = win.lastAccessed;
+      const orderKeyEl = card.querySelector('.card-order-key');
+      if (orderKeyEl) orderKeyEl.textContent = orderKeyText;
+
+      const titleEl = card.querySelector('.title');
+      if (titleEl && titleEl.textContent !== win.title) {
+        titleEl.textContent = win.title;
+      }
+
+      // Fix for live updates: Refresh content if expanded
+      const tabListContainer = card.querySelector('.tab-list');
+      if (tabListContainer && tabListContainer.dataset.loaded === 'true' && !tabListContainer.hasAttribute('hidden')) {
+        loadWindowDetails(win.id, card);
+      }
+      existingCards.delete(win.id); // Mark as visited
+
+      // Update order if needed
+      activeListEl.appendChild(card);
+    } else {
+      // Create new
+      // Create new
+      const frag = createWindowCard(win);
+      card = frag.querySelector('.card');
+      if (win.lastAccessed) card.dataset.lastAccessed = win.lastAccessed;
+
+      const orderKeyEl = card.querySelector('.card-order-key');
+      if (orderKeyEl) orderKeyEl.textContent = orderKeyText;
+
+      const titleEl = card.querySelector('.title');
+      if (titleEl) titleEl.textContent = win.title;
+
+      activeListEl.appendChild(frag);
+
+      // Auto-expand if active (initial load logic, but good to keep consistent)
+      if (win.focused) {
+        const targetContainer = card.querySelector('.tab-list');
+        const toggleButtons = card.querySelectorAll('.toggle-tabs');
+        if (targetContainer) {
+          targetContainer.removeAttribute('hidden');
+          toggleButtons.forEach(btn => {
+            btn.classList.remove('collapsed');
+            btn.textContent = '▾';
+          });
+          loadWindowDetails(win.id, card);
+        }
+      }
+    }
+  });
+
+  // 2. Remove extra
+  existingCards.forEach(card => card.remove());
+
   applyTraceHistory();
 }
 
@@ -205,8 +707,9 @@ function createWindowCard(win) {
   header.classList.add('compact-header');
   header.setAttribute('draggable', 'true');
   header.addEventListener('dragstart', handleWindowDragStart);
+  header.addEventListener('dragend', handleWindowDragEnd);
   card.addEventListener('dragover', handleWindowDragOver);
-  card.addEventListener('drop', handleWindowDrop);
+
   const windowCheckbox = createSelectCheckbox('window', { windowId: win.id });
   const titleEl = card.querySelector('.title');
   titleEl.textContent = win.title;
@@ -216,16 +719,44 @@ function createWindowCard(win) {
     win.title = updatedWindow.title;
   }));
   const metaEl = card.querySelector('.meta');
-  metaEl.textContent = `${win.tabs.length} tab(s)`;
+  metaEl.textContent = `... tabs`; // Placeholder
 
   const actions = card.querySelector('.card-actions');
-  actions.replaceChildren();
+  actions.replaceChildren(); // Clears template content
+
+  // Interactive Toggle Logic
+  const interactiveToggleLabel = card.querySelector('.interactive-toggle');
+  if (interactiveToggleLabel) {
+    const interactiveToggle = interactiveToggleLabel.querySelector('.interactive-checkbox');
+    const toggleIcon = interactiveToggleLabel.querySelector('.toggle-icon');
+
+    if (interactiveToggle) {
+      const updateIcon = (checked) => {
+        if (toggleIcon) toggleIcon.innerHTML = checked ? Icons.lockOpen : Icons.lockClosed;
+      };
+
+      const isInteractive = windowInteractionState.get(win.id) || false;
+      interactiveToggle.checked = isInteractive;
+      updateIcon(isInteractive);
+
+      interactiveToggle.addEventListener('change', () => {
+        windowInteractionState.set(win.id, interactiveToggle.checked);
+        updateIcon(interactiveToggle.checked);
+
+        // Reload content if expanded
+        const container = card.querySelector('.tab-list');
+        if (container && !container.hasAttribute('hidden')) {
+          loadWindowDetails(win.id, card);
+        }
+      });
+    }
+  }
 
   // Create save markdown icon button
   const saveBtn = document.createElement('button');
   saveBtn.className = 'icon-button';
   saveBtn.setAttribute('aria-label', 'Save Markdown');
-  saveBtn.textContent = '📥';
+  saveBtn.innerHTML = Icons.arrowDownTray;
   saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = true;
     try {
@@ -234,13 +765,16 @@ function createWindowCard(win) {
       const checkedTabIds = Array.from(card.querySelectorAll("input[data-select-kind='tab']:checked"))
         .map(input => Number(input.dataset.tabId))
         .filter(tabId => windowTabIds.includes(tabId));
-      
-      if (!checkedTabIds.length) {
-        toast('Select at least one tab in this window to save.');
+
+      // Smart Save: If nothing selected, save ALL tabs in this window
+      const targetTabIds = checkedTabIds.length > 0 ? checkedTabIds : windowTabIds;
+
+      if (!targetTabIds.length) {
+        toast('No tabs to save in this window.');
         return;
       }
-      
-      await saveMarkdownForTabIds(checkedTabIds);
+
+      await saveMarkdownForTabIds(targetTabIds);
     } catch (err) {
       toast(err.message);
     } finally {
@@ -252,7 +786,7 @@ function createWindowCard(win) {
   const closeBtn = document.createElement('button');
   closeBtn.className = 'icon-button danger';
   closeBtn.setAttribute('aria-label', 'Close Selected Tabs');
-  closeBtn.textContent = '🗑️';
+  closeBtn.innerHTML = Icons.xCircle;
   closeBtn.addEventListener('click', async () => {
     closeBtn.disabled = true;
     try {
@@ -261,12 +795,12 @@ function createWindowCard(win) {
       const checkedTabIds = Array.from(card.querySelectorAll("input[data-select-kind='tab']:checked"))
         .map(input => Number(input.dataset.tabId))
         .filter(tabId => windowTabIds.includes(tabId));
-      
+
       if (!checkedTabIds.length) {
         toast('Select at least one tab in this window to close.');
         return;
       }
-      
+
       await sendMessage({ type: 'close-tabs', tabIds: checkedTabIds });
       toast(`${checkedTabIds.length} tab(s) closed.`);
       await loadActiveWindows();
@@ -281,7 +815,7 @@ function createWindowCard(win) {
   const groupBtn = document.createElement('button');
   groupBtn.className = 'icon-button';
   groupBtn.setAttribute('aria-label', 'Group Selected Tabs');
-  groupBtn.textContent = '🏷️';
+  groupBtn.innerHTML = Icons.rectangleGroup;
   groupBtn.addEventListener('click', async () => {
     groupBtn.disabled = true;
     try {
@@ -290,21 +824,21 @@ function createWindowCard(win) {
       const checkedTabIds = Array.from(card.querySelectorAll("input[data-select-kind='tab']:checked"))
         .map(input => Number(input.dataset.tabId))
         .filter(tabId => windowTabIds.includes(tabId));
-      
+
       if (!checkedTabIds.length) {
         toast('Select at least one tab in this window to group.');
         return;
       }
-      
+
       if (checkedTabIds.length === 1) {
         toast('Select at least 2 tabs to create a group.');
         return;
       }
-      
+
       // Get a random color for the new group
       const colors = ['blue', 'red', 'green', 'yellow', 'pink', 'purple', 'cyan', 'orange'];
       const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      
+
       await sendMessage({
         type: 'assign-group',
         tabIds: checkedTabIds,
@@ -313,7 +847,7 @@ function createWindowCard(win) {
         title: 'New Group',
         color: randomColor
       });
-      
+
       toast(`${checkedTabIds.length} tab(s) grouped.`);
       await loadActiveWindows();
     } catch (err) {
@@ -339,45 +873,222 @@ function createWindowCard(win) {
 
   const container = card.querySelector('.tab-list');
   container.classList.add('tab-collection');
-  container.replaceChildren();
+  container.replaceChildren(); // Empty for now
   const toggleButtons = card.querySelectorAll('.toggle-tabs');
   toggleButtons.forEach(toggleBtn => {
     toggleBtn.type = 'button';
-    toggleBtn.addEventListener('click', event => {
+    toggleBtn.classList.add('collapsed');
+    toggleBtn.innerHTML = Icons.chevronRight;
+    toggleBtn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
       const targetContainer = card.querySelector('.tab-list');
       if (!targetContainer) return;
+
       const collapsed = targetContainer.hasAttribute('hidden');
       if (collapsed) {
         targetContainer.removeAttribute('hidden');
         toggleButtons.forEach(btn => {
           btn.classList.remove('collapsed');
-          btn.textContent = '▾';
+          btn.innerHTML = Icons.chevronDown;
         });
+        // Load content if it's not already loaded
+        if (!targetContainer.dataset.loaded) {
+          loadWindowDetails(win.id, card);
+        }
       } else {
         targetContainer.setAttribute('hidden', '');
         toggleButtons.forEach(btn => {
           btn.classList.add('collapsed');
-          btn.textContent = '▸';
+          btn.innerHTML = Icons.chevronRight;
         });
       }
     });
   });
 
-  buildWindowSections(win).forEach(section => {
-    if (section.type === 'group') {
-      container.appendChild(renderGroupSection(win, section.group, section.tabs));
-    } else if (section.type === 'tab') {
-      container.appendChild(renderSingleTabRow(win, section.tab));
+  // Auto-expand if window is focused
+  // Auto-expand all windows (User Preference)
+  if (true) {
+    const targetContainer = card.querySelector('.tab-list');
+    if (targetContainer) {
+      targetContainer.removeAttribute('hidden');
+      targetContainer.removeAttribute('hidden');
+      toggleButtons.forEach(btn => {
+        btn.classList.remove('collapsed');
+        btn.innerHTML = Icons.chevronDown;
+      });
+      // Load content immediately
+      loadWindowDetails(win.id, card);
     }
-  });
+  }
 
   container.dataset.windowId = win.id;
   container.addEventListener('drop', handleGroupContainerDrop);
 
   return frag;
 }
+
+// State to track window interactive mode (default: false for Read-Only)
+const windowInteractionState = new Map(); // windowId -> boolean
+
+function renderReadOnlyWindowContent(win, container) {
+  container.innerHTML = '';
+  const list = document.createElement('div');
+  list.className = 'read-only-list';
+
+  // Efficiently render plain text
+  const fragment = document.createDocumentFragment();
+
+  // Helper
+  // Helper
+  const createItem = (tab) => {
+    const div = document.createElement('div');
+    div.className = 'read-only-item';
+
+    // Checkbox for selection (Enable Actions)
+    const checkbox = createSelectCheckbox('tab', { tabId: tab.id });
+    div.appendChild(checkbox);
+
+    if (tab.favicon) {
+      const img = document.createElement('img');
+      img.src = tab.favicon;
+      img.className = 'read-only-favicon';
+      img.onerror = () => img.style.display = 'none'; // Hide if broken
+      div.appendChild(img);
+    }
+
+    // ... rest of item creation
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = tab.title || 'Untitled Tab';
+
+    // Add click-to-select behavior on title
+    titleSpan.style.cursor = 'default';
+    titleSpan.addEventListener('click', (e) => {
+      // Simple toggle for read-only mode
+      checkbox.checked = !checkbox.checked;
+      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    div.appendChild(titleSpan);
+
+    if (tab.url) {
+      const urlSpan = document.createElement('span');
+      urlSpan.className = 'read-only-url';
+      try {
+        const u = new URL(tab.url);
+        urlSpan.textContent = u.hostname;
+      } catch (e) {
+        // Fallback or leave empty
+      }
+      div.appendChild(urlSpan);
+    }
+
+    return div;
+  };
+
+  buildWindowSections(win).forEach(section => {
+    if (section.type === 'group') {
+      const header = document.createElement('div');
+      header.className = 'read-only-group-header';
+      header.textContent = `[Group] ${section.group.title || 'Untitled Group'}`;
+      header.style.color = colorToHex(section.group.color);
+      fragment.appendChild(header);
+
+      section.tabs.forEach(tab => fragment.appendChild(createItem(tab)));
+    } else {
+      fragment.appendChild(createItem(section.tab));
+    }
+  });
+
+  list.appendChild(fragment);
+  container.appendChild(list);
+}
+
+async function loadWindowDetails(windowId, card) {
+  const container = card.querySelector('.tab-list');
+  // Only show loading if we don't have content, to prevent flash on reload
+  if (!container.hasChildNodes()) {
+    container.textContent = 'Loading...';
+  }
+  try {
+    const win = await sendMessage({ type: 'get-window-details', windowId });
+
+    // Update the main cache
+    const cachedWindow = activeWindowsCache.find(w => w.id === windowId);
+    if (cachedWindow) {
+      cachedWindow.tabs = win.tabs;
+      cachedWindow.groups = win.groups;
+    }
+
+    const metaEl = card.querySelector('.meta');
+    metaEl.textContent = `${win.tabs.length} tab(s)`;
+
+
+
+    container.innerHTML = '';
+
+    // Check interaction state
+    const isInteractive = windowInteractionState.get(windowId) || false;
+    if (!isInteractive) {
+      renderReadOnlyWindowContent(win, container);
+      container.dataset.loaded = 'true';
+      return;
+    }
+
+    // Use Progressive Rendering for Interactive Mode
+    renderInteractiveWindowContent(win, container);
+
+    container.dataset.loaded = 'true';
+    applyTraceHistory();
+  } catch (err) {
+    container.textContent = `Error: ${err.message}`;
+  }
+}
+
+function renderInteractiveWindowContent(win, container) {
+  const sections = buildWindowSections(win);
+  const CHUNK_SIZE = 20;
+  let sectionIndex = 0;
+
+  // Track rendering state on container to allow cancellation
+  if (container._renderId) cancelIdleCallback(container._renderId);
+
+  // Start rendering
+  // Add loading indicator
+  const loader = document.createElement('div');
+  loader.className = 'chunk-loader';
+  loader.textContent = 'Loading more items...';
+  container.appendChild(loader);
+
+  const renderChunk = (deadline) => {
+    // Stop if container is hidden or removed
+    if (!container.isConnected || container.hasAttribute('hidden')) return;
+
+    // Temporarily remove loader to append items
+    loader.remove();
+
+    while (sectionIndex < sections.length && deadline.timeRemaining() > 1) {
+      const section = sections[sectionIndex];
+      if (section.type === 'group') {
+        container.appendChild(renderGroupSection(win, section.group, section.tabs));
+      } else if (section.type === 'tab') {
+        container.appendChild(renderSingleTabRow(win, section.tab));
+      }
+      sectionIndex++;
+    }
+
+    if (sectionIndex < sections.length) {
+      // Re-append loader at the end
+      container.appendChild(loader);
+      container._renderId = requestIdleCallback(renderChunk);
+    } else {
+      container._renderId = null;
+    }
+  };
+
+  container._renderId = requestIdleCallback(renderChunk);
+}
+
 
 async function loadWindowOrder() {
   try {
@@ -412,12 +1123,35 @@ function sortWindowsByOrder(windows, order) {
 }
 
 function persistWindowOrderFromDom() {
-  const order = Array.from(activeListEl.querySelectorAll('.card'))
+  const cards = Array.from(activeListEl.querySelectorAll('.card'));
+  const order = cards
     .map(card => Number(card.dataset.winId))
     .filter(Boolean);
   saveWindowOrder(order);
-  const windowById = new Map(activeWindowsCache.map(win => [win.id, win]));
-  const reordered = order.map(id => windowById.get(id)).filter(Boolean);
+
+  // Update prefixes
+  // Update prefixes
+  cards.forEach((card, index) => {
+    // Update the separate order key element
+    const orderKeyEl = card.querySelector('.card-order-key');
+    if (orderKeyEl) {
+      orderKeyEl.textContent = `[${index + 1}]`;
+    }
+
+    const titleEl = card.querySelector('.title');
+    const winId = Number(card.dataset.winId);
+    const win = activeWindowMap.get(winId);
+    if (titleEl && win) {
+      // win.title is the source of truth for the NAME. 
+      // We no longer prepend [N] here.
+      if (titleEl.textContent !== win.title) {
+        titleEl.textContent = win.title;
+      }
+    }
+  });
+
+  // activeWindowMap is already efficient
+  const reordered = order.map(id => activeWindowMap.get(id)).filter(Boolean);
   const missing = activeWindowsCache.filter(win => !order.includes(win.id));
   activeWindowsCache = reordered.concat(missing);
 }
@@ -436,36 +1170,344 @@ function handleWindowDragStart(event) {
   card.classList.add('dragging');
 }
 
-function handleWindowDragOver(event) {
-  if (!windowDragContext) {
-    return;
-  }
-  const card = event.currentTarget;
-  if (Number(card.dataset.winId) === windowDragContext.windowId) {
-    return;
-  }
-  event.preventDefault();
-  event.dataTransfer.dropEffect = 'move';
-  const rect = card.getBoundingClientRect();
-  const before = event.clientY < rect.top + rect.height / 2;
-  updateWindowDropIndicator(card, before);
+// Helper to find closest card when dragging over container
+function getClosestCard(y) {
+  const cards = [...activeListEl.querySelectorAll('.card:not(.dragging)')];
+  return cards.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      return { offset: offset, element: child };
+    } else {
+      return closest;
+    }
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
+
+
+// --- Unified Drag & Drop Architecture ---
+
+/**
+ * Calculates the semantic drop target based on mouse position and drag context.
+ * Returns { type, action, targetId, position, element, targetWindowId } or null.
+ */
+function getDropTarget(event) {
+  if (!dragContext && !windowDragContext) return null;
+
+  const clientY = event.clientY;
+  // If dragging a window, we only care about window sorting/gaps
+  const isWindowDrag = !!windowDragContext;
+
+  // 1. Check if we are over the main list container or gaps between windows
+  // This logic takes precedence for "New Window" or "Reorder Window" actions
+  const targetCard = event.target.closest('.card');
+  const isContainer = event.target === activeListEl || event.target.closest('#active-list');
+
+  // Helper to check if we are closer to a gap than inside a card
+  // or if we are strictly in a gap space.
+  // For simplicity, if we are NOT over a card but ARE over/in the container, it's a gap.
+  if (isContainer && !targetCard) {
+    const closest = getClosestCard(clientY);
+
+    if (!closest) {
+      // Empty list or at the very end
+      const cards = activeListEl.querySelectorAll('.card');
+      if (cards.length > 0) {
+        const lastCard = cards[cards.length - 1];
+        const rect = lastCard.getBoundingClientRect();
+        if (clientY > rect.bottom) {
+          return {
+            type: 'window-gap',
+            action: isWindowDrag ? 'reorder-window' : 'create-window',
+            targetId: Number(lastCard.dataset.winId),
+            position: 'after',
+            element: lastCard
+          };
+        }
+      }
+      return null; // Initial empty state handled elsewhere?
+    }
+
+    // Relative to closest card
+    const rect = closest.getBoundingClientRect();
+    const before = clientY < rect.top + rect.height / 2;
+    return {
+      type: 'window-gap',
+      action: isWindowDrag ? 'reorder-window' : 'create-window',
+      targetId: Number(closest.dataset.winId),
+      position: before ? 'before' : 'after',
+      element: closest
+    };
+  }
+
+  // 2. Window Content (Tabs/Groups)
+  if (isWindowDrag) {
+    // Dragging a window OVER another window card -> Reorder
+    if (targetCard) {
+      // If the dragged window IS the target window, ignore
+      const targetWinId = Number(targetCard.dataset.winId);
+      if (windowDragContext.windowId === targetWinId) return null;
+
+      const rect = targetCard.getBoundingClientRect();
+      const before = clientY < rect.top + rect.height / 2;
+      return {
+        type: 'window-gap',
+        action: 'reorder-window',
+        targetId: targetWinId,
+        position: before ? 'before' : 'after',
+        element: targetCard
+      };
+    }
+    return null;
+  }
+
+  // 3. Tab/Group Specific Targets (within a window)
+  // We strictly check specific elements first
+  const targetEl = event.target.closest('.tab-item, .group-header, .tab-list-inner.single, .group-section, .tab-collection');
+
+  if (!targetEl) {
+    // Hovering generic card area (e.g. title bar or empty space inside card)
+    // Append to window
+    if (targetCard) {
+      return {
+        type: 'window-content',
+        action: 'move-to-window',
+        targetWindowId: Number(targetCard.dataset.winId),
+        targetId: Number(targetCard.dataset.winId),
+        position: 'append',
+        element: targetCard
+      };
+    }
+    return null;
+  }
+
+  const rect = targetEl.getBoundingClientRect();
+  const before = clientY < rect.top + rect.height / 2;
+  const targetWindowId = Number(targetEl.closest('.card')?.dataset.winId);
+
+  // A. Tab Item
+  if (targetEl.matches('.tab-item')) {
+    return {
+      type: 'tab',
+      action: 'reorder-tab',
+      targetId: Number(targetEl.dataset.tabId),
+      targetWindowId,
+      position: before ? 'before' : 'after',
+      element: targetEl
+    };
+  }
+
+  // B. Group Header
+  if (targetEl.matches('.group-header')) {
+    // Decide if we are dropping INTO the group or reordering the group itself?
+    // If dragging a GROUP -> Reorder Group
+    // If dragging TAB(s) -> Merge into group
+    const groupId = Number(targetEl.dataset.groupId);
+    const isGroupDrag = dragContext.kind === 'group';
+
+    if (isGroupDrag) {
+      return {
+        type: 'group',
+        action: 'reorder-group',
+        targetId: groupId,
+        targetWindowId,
+        position: before ? 'before' : 'after',
+        element: targetEl
+      };
+    } else {
+      // Merging tabs into group
+      // If we are hovering the header, we likely mean "add to this group"
+      return {
+        type: 'group',
+        action: 'merge-to-group',
+        targetId: groupId,
+        targetWindowId,
+        position: 'append', // Append to group
+        element: targetEl
+      };
+    }
+  }
+
+  // C. Group Section (Empty space in a group or specific drop area)
+  // Actually .group-section contains the header and list. 
+  // If we matched .group-section but NOT .group-header or .tab-item, we are likely at the edge/padding.
+  if (targetEl.matches('.group-section')) {
+    const groupId = Number(targetEl.dataset.groupId);
+    return {
+      type: 'group',
+      action: dragContext.kind === 'group' ? 'reorder-group' : 'merge-to-group',
+      targetId: groupId,
+      targetWindowId,
+      position: before ? 'before' : 'after',
+      element: targetEl
+    };
+  }
+
+  // D. Tab Collection (Root list of window)
+  if (targetEl.matches('.tab-collection')) {
+    // Empty window or at ends
+    return {
+      type: 'window-content',
+      action: 'reorder-tab', // Or generic move
+      targetId: -1, // No specific ref
+      targetWindowId,
+      position: before ? 'start' : 'end',
+      element: targetEl
+    };
+  }
+
+  return null;
+}
+
+// Unified Visual Indicator Update
+function updateUnifiedDropIndicator(target) {
+  if (!target) {
+    clearDropIndicator();
+    clearWindowDropIndicator();
+    return;
+  }
+
+  if (target.type === 'window-gap') {
+    clearDropIndicator();
+    updateWindowDropIndicator(target.element, target.position === 'before');
+  } else {
+    clearWindowDropIndicator();
+    updateDropIndicator(target.element, target.position === 'before' || target.position === 'start', target.type === 'group');
+  }
+}
+
+const handleThrottledDragOver = throttle(event => {
+  const target = getDropTarget(event);
+  updateUnifiedDropIndicator(target);
+}, 50);
+
+function handleWindowDragEnd(event) {
+  const card = event.target.closest('.card');
+  if (card) {
+    card.classList.remove('dragging');
+  }
+  windowDragContext = null;
+  clearWindowDropIndicator();
+}
+
+// function handleWindowDragOver(event) {
+//   event.preventDefault(); // Mandatory for drop
+//   event.dataTransfer.dropEffect = 'move';
+//   handleThrottledDragOver(event);
+// }
+
+// Unified handler simplifies this
+const handleWindowDragOver = (event) => {
+  event.preventDefault();
+  handleThrottledDragOver(event);
+};
+
+// Deprecate old throttledWindowDragOverLogic
+const throttledWindowDragOverLogic = handleThrottledDragOver;
+
 function handleWindowDrop(event) {
-  if (!windowDragContext) {
+  if (!windowDragContext && !dragContext) {
     return;
   }
   event.preventDefault();
-  const targetCard = event.currentTarget;
-  const sourceCard = activeListEl.querySelector(`.card[data-win-id='${windowDragContext.windowId}']`);
-  if (!sourceCard || sourceCard === targetCard) {
+
+  let targetCard = event.target.closest('.card');
+  const isContainer = event.target === activeListEl || event.target.closest('#active-list');
+
+  if (!targetCard && isContainer) {
+    // Re-calculate simply similar to dragover
+    const closest = getClosestCard(event.clientY);
+    if (closest) targetCard = closest;
+    else {
+      const cards = activeListEl.querySelectorAll('.card');
+      if (cards.length) targetCard = cards[cards.length - 1];
+    }
+  }
+
+  // Determine drop position (before/after targetCard)
+  let before = false;
+  if (targetCard) {
+    const rect = targetCard.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    const mouseY = event.clientY;
+    const mouseX = event.clientX;
+
+    if (mouseY < rect.top) before = true;
+    else if (mouseY > rect.bottom) before = false;
+    else before = mouseX < midX;
+  }
+
+  clearWindowDropIndicator();
+
+  // Scenario 1: Reordering Windows
+  if (windowDragContext) {
+    const sourceCard = activeListEl.querySelector(`.card[data-win-id='${windowDragContext.windowId}']`);
+    if (!sourceCard || !targetCard || sourceCard === targetCard) {
+      return;
+    }
+    moveElement(sourceCard, targetCard, before);
+    persistWindowOrderFromDom();
     return;
   }
-  clearWindowDropIndicator();
-  const rect = targetCard.getBoundingClientRect();
-  const before = event.clientY < rect.top + rect.height / 2;
-  moveElement(sourceCard, targetCard, before);
-  persistWindowOrderFromDom();
+
+  // Scenario 2: Dropping Tabs/Groups to create NEW Window
+  if (dragContext && targetCard) {
+    // We are dropping tabs/groups "between" windows to create a new one.
+    // Calculate insert index.
+    const targetCardIndex = Array.from(activeListEl.children).indexOf(targetCard);
+    // If before, index is targetCardIndex. If after, index is targetCardIndex + 1.
+    const newIndex = before ? targetCardIndex : targetCardIndex + 1;
+
+    // Delegate to handleMoveToNewWindow or similar logic
+    // existing logic: handleMoveToNewWindow(items, newIndex) ? 
+    // We can reuse the message 'move-to-new-window' passing tabIds or groupId
+
+    const items = dragContext.tabIds || (dragContext.groupId ? { groupId: dragContext.groupId } : null);
+    if (!items) return; // Should not happen
+
+    // Call backend to create window
+    (async () => {
+      try {
+        let newWindow;
+        if (dragContext.type === 'group' || dragContext.kind === 'group') {
+          newWindow = await sendMessage({
+            type: 'move-to-new-window',
+            kind: 'group',
+            groupId: dragContext.groupId
+          });
+        } else {
+          // Tabs
+          newWindow = await sendMessage({
+            type: 'move-to-new-window',
+            kind: 'tabs',
+            tabIds: dragContext.tabIds
+          });
+        }
+
+        if (newWindow) {
+          // Now we need to insert this new window into our CUSTOM order at newIndex
+          // 1. Get current order
+          const order = await loadWindowOrder(); // or get from DOM
+          // Actually DOM is most up to date usually?
+          const currentDomOrder = Array.from(activeListEl.querySelectorAll('.card'))
+            .map(c => Number(c.dataset.winId));
+
+          // Insert newWindow.id at newIndex
+          currentDomOrder.splice(newIndex, 0, newWindow.id);
+
+          await saveWindowOrder(currentDomOrder);
+
+          // Reload
+          loadActiveWindows();
+          toast('Created new window');
+        }
+      } catch (err) {
+        console.error('Failed to create new window from drop', err);
+        toast('Failed to create window');
+      }
+    })();
+  }
 }
 
 function buildWindowSections(win) {
@@ -513,7 +1555,7 @@ function renderGroupSection(win, group, tabs) {
   header.dataset.dropTarget = 'group';
   header.dataset.groupId = group.id;
   header.dataset.windowId = win.id;
-  header.addEventListener('drop', handleGroupDrop);
+
   header.draggable = true;
   header.addEventListener('dragstart', handleGroupChipDragStart);
 
@@ -538,7 +1580,7 @@ function renderGroupSection(win, group, tabs) {
   }));
   chip.draggable = true;
   chip.addEventListener('dragstart', handleGroupChipDragStart);
-  
+
 
   const groupCount = document.createElement('span');
   groupCount.className = 'group-count';
@@ -574,13 +1616,13 @@ function renderGroupSection(win, group, tabs) {
         list.removeAttribute('hidden');
         toggleButtons.forEach(btn => {
           btn.classList.remove('collapsed');
-          btn.textContent = '▾';
+          btn.innerHTML = Icons.chevronDown;
         });
       } else {
         list.setAttribute('hidden', '');
         toggleButtons.forEach(btn => {
           btn.classList.add('collapsed');
-          btn.textContent = '▸';
+          btn.innerHTML = Icons.chevronRight;
         });
       }
     });
@@ -654,7 +1696,24 @@ function createTabItem(win, tab) {
   urlButton.className = 'tab-link-text';
   urlButton.textContent = tab.url || '';
   urlEl.appendChild(urlButton);
-  item.append(icon, label, urlEl, tabCheckbox);
+
+  item.append(icon, label);
+
+  // Audio Indicator
+  if (tab.audible) {
+    const audioIndicator = document.createElement('div');
+    audioIndicator.className = 'tab-audio-indicator';
+    audioIndicator.textContent = '🔊';
+    audioIndicator.title = 'Playing audio';
+
+    // Optional: click to mute? (Requires permission/backend support)
+    // For now purely visual.
+
+    item.appendChild(audioIndicator);
+  }
+
+  item.append(urlEl, tabCheckbox);
+
   if (tab.pinned) {
     item.classList.add('pinned');
     item.setAttribute('draggable', 'false');
@@ -663,8 +1722,8 @@ function createTabItem(win, tab) {
   }
 
   item.addEventListener('dragstart', handleTabDragStart);
-  
-  item.addEventListener('drop', handleTabDrop);
+
+
   const focusTab = async event => {
     event.stopPropagation();
     try {
@@ -685,6 +1744,11 @@ function createTabItem(win, tab) {
     hideTabTooltip();
   });
   tabCheckbox.addEventListener('change', () => {
+    if (tabCheckbox.checked) {
+      item.classList.add('selected');
+    } else {
+      item.classList.remove('selected');
+    }
     const section = item.closest('.group-section');
     if (section) {
       updateGroupCheckboxState(section);
@@ -694,12 +1758,16 @@ function createTabItem(win, tab) {
       updateWindowCheckboxState(card);
     }
   });
+  // Initial state
+  if (tabCheckbox.checked) {
+    item.classList.add('selected');
+  }
 
   return item;
 }
 
 function applyTraceHistory() {
-  const items = Array.from(document.querySelectorAll('.tab-item')).filter(item => !item.classList.contains('muted'));
+  const items = Array.from(document.querySelectorAll('.tab-item, .card')).filter(item => !item.classList.contains('muted'));
   if (!traceHistoryToggle?.checked) {
     items.forEach(item => {
       item.style.backgroundColor = '';
@@ -716,6 +1784,18 @@ function applyTraceHistory() {
   ranked.forEach((entry, index) => {
     const ratio = total > 1 ? index / (total - 1) : 0;
     entry.item.style.backgroundColor = interpolateHistoryColor(ratio);
+    if (entry.item.classList.contains('card')) {
+      // Apply slightly different styling or same?
+      // Let's apply same but maybe subtle?
+      // entry.item.style.backgroundColor = interpolateHistoryColor(ratio);
+      // Standard cards have bg #f1f5f9.
+      // Interpolate from that to gray/dark?
+      // Or just use the same scale?
+      // The scale is white -> gray.
+      entry.item.style.backgroundColor = interpolateHistoryColor(ratio);
+    } else {
+      entry.item.style.backgroundColor = interpolateHistoryColor(ratio);
+    }
   });
 }
 
@@ -832,20 +1912,21 @@ function updateGroupCheckboxState(section) {
 }
 
 function getFaviconUrl(tab) {
-  if (tab.favicon) {
-    return tab.favicon;
+  if (tab.favIconUrl) {
+    return tab.favIconUrl;
   }
-  const fallback = 'chrome://favicon/size/16@2x/';
   const url = tab.url || tab.pendingUrl;
-  if (!url) {
+  if (!url || url.includes('window_end_marker')) {
     return '';
   }
+
   try {
     const parsed = new URL(url);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      return `${fallback}${parsed.origin}`;
-    }
-    return '';
+    // Construct the MV3 compliant favicon URL
+    const faviconUrl = new URL(chrome.runtime.getURL("/_favicon/"));
+    faviconUrl.searchParams.set("pageUrl", url);
+    faviconUrl.searchParams.set("size", "32");
+    return faviconUrl.toString();
   } catch (err) {
     return '';
   }
@@ -867,93 +1948,15 @@ function updateDropIndicator(target, before, isGroup) {
   }, 1000);
 }
 
-const handleThrottledDragOver = throttle(event => {
-  if (!dragContext) return;
-  const target = event.target.closest('.tab-item, .group-section, .tab-list-inner.single, .group-header, .tab-collection');
-  if (!target) {
-    clearDropIndicator();
-    return;
-  }
-  const isGroup = dragContext.kind === 'group';
-  const isMultiTab = dragContext.kind === 'tabs';
-  const rect = target.getBoundingClientRect();
-  const before = event.clientY < rect.top + rect.height / 2;
-if (isGroup) {
-  if (target.matches('.tab-item')) {
-    const parentGroup = target.closest('.group-section');
-    if (parentGroup && Number(parentGroup.dataset.groupId) === dragContext.groupId) {
-      clearDropIndicator();
-      return;
-    }
-    updateDropIndicator(target, before, true);
-  } else if (target.matches('.group-section')) {
-    if (Number(target.dataset.groupId) === dragContext.groupId) {
-      clearDropIndicator();
-      return;
-    }
-    updateDropIndicator(target, before, true);
-  } else if (target.matches('.tab-list-inner.single')) {
-    updateDropIndicator(target, before, true);
-  } else if (target.matches('.group-header')) {
-    const parentSection = target.closest('.group-section');
-    if (parentSection && Number(parentSection.dataset.groupId) === dragContext.groupId) {
-      clearDropIndicator();
-      return;
-    }
-    updateDropIndicator(target, true, true);
-  }
-} else {
-    // Dragging a tab or multiple tabs
-    if (target.matches('.tab-item')) {
-      // For multi-tab drag, don't prevent drop if one of the dragged tabs matches the target
-      if (!isMultiTab && Number(target.dataset.tabId) === dragContext.tabId) {
-        clearDropIndicator();
-        return;
-      }
-      updateDropIndicator(target, before, false);
-    } else if (target.matches('.group-section')) {
-      // For group sections, show indicator based on drop position relative to the group
-      updateDropIndicator(target, before, false);
-    } else if (target.matches('.group-header')) {
-updateDropIndicator(target, before, false);
-    } else if (target.matches('.tab-collection')) {
-      // Handle dragging over the tab collection container
-      const firstChild = target.firstChild;
-      if (firstChild) {
-        const firstRect = firstChild.getBoundingClientRect();
-        const droppingAtTop = event.clientY < firstRect.top + firstRect.height / 2;
-        if (droppingAtTop) {
-          // Show indicator at the very top
-          updateDropIndicator(target, true, false);
-        } else {
-          // Show indicator at the very bottom
-          const lastChild = target.lastChild;
-          if (lastChild) {
-            const lastRect = lastChild.getBoundingClientRect();
-            const droppingAtBottom = event.clientY > lastRect.bottom - lastRect.height / 2;
-            if (droppingAtBottom) {
-              updateDropIndicator(target, false, false);
-            } else {
-              clearDropIndicator();
-            }
-          }
-        }
-      } else {
-        // Empty collection - show indicator in the middle
-        updateDropIndicator(target, true, false);
-      }
-    }
-  }
-}, 100);
 
 function handleTabDragStart(event) {
   const { tabId, windowId, groupId } = event.currentTarget.dataset;
-  
+
   // Check if this is a multi-tab drag operation
   const checkedTabIds = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"))
     .map(input => Number(input.dataset.tabId))
     .filter(Boolean);
-  
+
   if (checkedTabIds.length > 1 && checkedTabIds.includes(Number(tabId))) {
     // Multi-tab drag operation
     dragContext = {
@@ -964,7 +1967,7 @@ function handleTabDragStart(event) {
       groupId: Number(groupId)
     };
     event.dataTransfer?.setData('text/plain', `tabs:${checkedTabIds.join(',')}`);
-    
+
     // Highlight all checked tabs during drag and set drag count
     checkedTabIds.forEach((checkedTabId, index) => {
       const tabElement = document.querySelector(`.tab-item[data-tab-id='${checkedTabId}']`);
@@ -1027,11 +2030,20 @@ function clearDropIndicator() {
 
 function updateWindowDropIndicator(target, before) {
   const rect = target.getBoundingClientRect();
-  const height = 12;
+  const height = 100; // Large target area
+  const gap = 20; // Visual gap reference
+
   windowDropIndicator.style.width = `${rect.width}px`;
   windowDropIndicator.style.left = `${rect.left}px`;
+
+  // Position "in between"
   windowDropIndicator.style.height = `${height}px`;
-  windowDropIndicator.style.top = before ? `${rect.top - height / 2}px` : `${rect.bottom - height / 2}px`;
+
+  if (before) {
+    windowDropIndicator.style.top = `${rect.top - height / 2}px`;
+  } else {
+    windowDropIndicator.style.top = `${rect.bottom - height / 2}px`;
+  }
   if (!windowDropIndicator.isConnected) {
     document.body.appendChild(windowDropIndicator);
   }
@@ -1080,7 +2092,7 @@ async function handleTabDrop(event) {
       newIndex = Number(targetEl.dataset.index) + (before ? 0 : 1);
       const targetGroupId = targetEl.closest('.group-section')?.dataset.groupId;
       newGroupId = targetGroupId === undefined ? -1 : Number(targetGroupId);
-      
+
       // For multi-tab drag, we don't move elements in UI since we'll reload
       if (!isMultiTab) {
         const sourceTabEl = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
@@ -1098,88 +2110,88 @@ async function handleTabDrop(event) {
           list.appendChild(sourceTabEl.closest('ul'));
         }
       }
-  } else if (targetEl.matches('.tab-list-inner.single')) {
-    const rect = targetEl.getBoundingClientRect();
-    const before = event.clientY < rect.top + rect.height / 2;
-    newIndex = Number(targetEl.dataset.index) + (before ? 0 : 1);
-    newGroupId = -1;
-    
-    // For multi-tab drag, we don't move elements in UI since we'll reload
-    if (!isMultiTab) {
-      const sourceTabEl = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
-      if (sourceTabEl) {
-        moveElement(sourceTabEl.closest('ul'), targetEl, before);
-      }
-    }
-  } else if (targetEl.matches('.group-section')) {
-    // Handle dropping on a group section - this fixes the issue with groups at first position
-    const rect = targetEl.getBoundingClientRect();
-    const before = event.clientY < rect.top + rect.height / 2;
-    
-    if (before) {
-      // Drop before the group - use the group's start index
-      newIndex = Number(targetEl.dataset.groupStartIndex);
-      newGroupId = -1; // Ungrouped position before the group
-    } else {
-      // Drop after the group - use the group's end index + 1
-      newIndex = Number(targetEl.dataset.groupEndIndex) + 1;
-      newGroupId = -1; // Ungrouped position after the group
-    }
-  } else if (targetEl.matches('.tab-collection')) {
-    // Handle dropping directly on the tab collection (when no other targets are available)
-    // This allows dropping at the very beginning or end of the window
-    const firstChild = targetEl.firstChild;
-    if (!firstChild) {
-      // Empty collection - drop at position 0
-      newIndex = 0;
+    } else if (targetEl.matches('.tab-list-inner.single')) {
+      const rect = targetEl.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      newIndex = Number(targetEl.dataset.index) + (before ? 0 : 1);
       newGroupId = -1;
-    } else {
-      // Check if we're dropping near the top (before first element)
-      const firstRect = firstChild.getBoundingClientRect();
-      const droppingAtTop = event.clientY < firstRect.top + firstRect.height / 2;
-      
-      if (droppingAtTop) {
-        // Drop at the very beginning
-        if (firstChild.matches('.group-section')) {
-          // First element is a group - drop before it
-          newIndex = Number(firstChild.dataset.groupStartIndex);
-        } else {
-          // First element is a tab - drop at index 0
-          newIndex = 0;
+
+      // For multi-tab drag, we don't move elements in UI since we'll reload
+      if (!isMultiTab) {
+        const sourceTabEl = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
+        if (sourceTabEl) {
+          moveElement(sourceTabEl.closest('ul'), targetEl, before);
         }
+      }
+    } else if (targetEl.matches('.group-section')) {
+      // Handle dropping on a group section - this fixes the issue with groups at first position
+      const rect = targetEl.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+
+      if (before) {
+        // Drop before the group - use the group's start index
+        newIndex = Number(targetEl.dataset.groupStartIndex);
+        newGroupId = -1; // Ungrouped position before the group
+      } else {
+        // Drop after the group - use the group's end index + 1
+        newIndex = Number(targetEl.dataset.groupEndIndex) + 1;
+        newGroupId = -1; // Ungrouped position after the group
+      }
+    } else if (targetEl.matches('.tab-collection')) {
+      // Handle dropping directly on the tab collection (when no other targets are available)
+      // This allows dropping at the very beginning or end of the window
+      const firstChild = targetEl.firstChild;
+      if (!firstChild) {
+        // Empty collection - drop at position 0
+        newIndex = 0;
         newGroupId = -1;
       } else {
-        // Drop at the very end
-        const lastChild = targetEl.lastChild;
-        const lastRect = lastChild.getBoundingClientRect();
-        if (lastChild.matches('.group-section')) {
-          // Last element is a group - drop after it
-          newIndex = Number(lastChild.dataset.groupEndIndex) + 1;
+        // Check if we're dropping near the top (before first element)
+        const firstRect = firstChild.getBoundingClientRect();
+        const droppingAtTop = event.clientY < firstRect.top + firstRect.height / 2;
+
+        if (droppingAtTop) {
+          // Drop at the very beginning
+          if (firstChild.matches('.group-section')) {
+            // First element is a group - drop before it
+            newIndex = Number(firstChild.dataset.groupStartIndex);
+          } else {
+            // First element is a tab - drop at index 0
+            newIndex = 0;
+          }
+          newGroupId = -1;
         } else {
-          // Last element is a tab - drop after it
-          newIndex = Number(lastChild.dataset.index) + 1;
+          // Drop at the very end
+          const lastChild = targetEl.lastChild;
+          const lastRect = lastChild.getBoundingClientRect();
+          if (lastChild.matches('.group-section')) {
+            // Last element is a group - drop after it
+            newIndex = Number(lastChild.dataset.groupEndIndex) + 1;
+          } else {
+            // Last element is a tab - drop after it
+            newIndex = Number(lastChild.dataset.index) + 1;
+          }
+          newGroupId = -1;
         }
-        newGroupId = -1;
       }
     }
-  }
 
     try {
       if (typeof newGroupId === 'number' && !Number.isNaN(newGroupId)) {
         // Only change group if it's different from source group
         const shouldChangeGroup = isMultiTab
           ? tabIdsToMove.some(tabId => {
-              const tabElement = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
-              const currentGroupId = tabElement?.dataset.groupId ? Number(tabElement.dataset.groupId) : -1;
-              return currentGroupId !== newGroupId;
-            })
+            const tabElement = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
+            const currentGroupId = tabElement?.dataset.groupId ? Number(tabElement.dataset.groupId) : -1;
+            return currentGroupId !== newGroupId;
+          })
           : newGroupId !== sourceGroupId;
-        
+
         if (shouldChangeGroup) {
           await sendMessage({ type: 'assign-group', tabIds: tabIdsToMove, groupId: newGroupId, windowId: targetWindowId });
         }
       }
-      
+
       // Move tabs to new position
       if (typeof newIndex === 'number' && !Number.isNaN(newIndex)) {
         // For multi-tab drag, move all tabs to the same position
@@ -1189,7 +2201,7 @@ async function handleTabDrop(event) {
           newIndex++;
         }
       }
-      
+
       // Update local cache for single tab moves between windows
       if (!isMultiTab && sourceWindowId !== targetWindowId && typeof newIndex === 'number') {
         const sourceWindow = activeWindowsCache.find(w => w.id === sourceWindowId);
@@ -1200,8 +2212,9 @@ async function handleTabDrop(event) {
           targetWindow.tabs.splice(newIndex, 0, tabToMove);
         }
       }
-      
+
       await loadActiveWindows();
+      selectTabs(tabIdsToMove);
     } catch (err) {
       toast(err.message);
       await loadActiveWindows();
@@ -1271,6 +2284,7 @@ async function handleGroupDrop(event) {
       await sendMessage({ type: 'assign-group', tabIds: [dragContext.tabId], groupId: -1, windowId });
     }
     await loadActiveWindows();
+    selectTabs([dragContext.tabId]);
   } catch (err) {
     toast(err.message);
   } finally {
@@ -1323,22 +2337,23 @@ async function handleGroupSectionDrop(event) {
 
     try {
       if (windowId === sourceWindowId && sourceGroupId > -1) {
-          await sendMessage({ type: 'assign-group', tabIds: [tabId], groupId: -1 });
+        await sendMessage({ type: 'assign-group', tabIds: [tabId], groupId: -1 });
       }
 
       await sendMessage({
-          type: 'move-tab',
-          tabId,
-          windowId,
-          index: targetIndex,
+        type: 'move-tab',
+        tabId,
+        windowId,
+        index: targetIndex,
       });
       await loadActiveWindows();
+      selectTabs([tabId]);
     } catch (err) {
-        toast(err.message);
-        await loadActiveWindows();
+      toast(err.message);
+      await loadActiveWindows();
     } finally {
-        clearDropIndicator();
-        dragContext = null;
+      clearDropIndicator();
+      dragContext = null;
     }
     return;
   }
@@ -1397,6 +2412,7 @@ async function handleGroupContainerDrop(event) {
   try {
     await sendMessage({ type: 'move-group', groupId: dragContext.groupId, windowId, index: -1 });
     await loadActiveWindows();
+    selectTabs([dragContext.tabId]);
   } catch (err) {
     toast(err.message);
   } finally {
@@ -1423,10 +2439,31 @@ async function handleTabbedRowDrop(event) {
   }
 }
 
-function toast(message) {
+const toastContainer = document.getElementById('toast-container');
+
+function toast(message, type = 'info', duration = 3000) {
   if (!message) return;
-  chrome.runtime.sendMessage({ type: 'toast', message }).catch(() => console.warn(message));
+  // Log to background as well?
+  // chrome.runtime.sendMessage({ type: 'toast', message }).catch(() => { });
+
+  if (!toastContainer) {
+    console.log(`[Toast ${type}]: ${message}`);
+    return;
+  }
+
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = message;
+
+  toastContainer.appendChild(el);
+
+  // Remove after duration
+  setTimeout(() => {
+    el.classList.add('hide');
+    el.addEventListener('transitionend', () => el.remove());
+  }, duration);
 }
+
 
 function colorToHex(color) {
   const map = {
@@ -1482,6 +2519,18 @@ async function saveMarkdownForTabIds(tabIds) {
   }
 }
 
+function selectTabs(tabIds) {
+  if (!tabIds || !tabIds.length) return;
+  tabIds.forEach(id => {
+    const checkbox = document.querySelector(`input[data-tab-id='${id}']`);
+    if (checkbox) {
+      checkbox.checked = true;
+      // Trigger change event to update UI (selected class)
+      checkbox.dispatchEvent(new Event('change'));
+    }
+  });
+}
+
 
 function throttle(callback, delay) {
   let throttleTimeout = null;
@@ -1501,3 +2550,572 @@ function throttle(callback, delay) {
 }
 
 loadAll();
+
+/* Context Menu Logic */
+
+const contextMenu = document.getElementById('context-menu');
+
+document.addEventListener('contextmenu', event => {
+  event.preventDefault();
+  handleContextMenu(event);
+});
+
+document.addEventListener('click', () => {
+  if (contextMenu) contextMenu.style.display = 'none';
+});
+
+async function handleContextMenu(event) {
+  if (!contextMenu) return;
+
+  const x = event.clientX;
+  const y = event.clientY;
+
+  // 1. Identify Target Context
+  const targetCard = event.target.closest('.card');
+  const targetTabItem = event.target.closest('.tab-item');
+  const targetGroupHeader = event.target.closest('.group-header');
+
+  // 2. Identify Selection
+  const selectedTabInputs = Array.from(document.querySelectorAll("input[data-select-kind='tab']:checked"));
+  const selectedTabsCount = selectedTabInputs.length;
+
+
+  // Priority Order: 
+  // 1. Group Header (Force group actions)
+  // 2. Selection (If exists)
+  // 3. Tab Item
+  // 4. Window / Empty Space
+
+  const items = [];
+
+  if (targetGroupHeader) {
+    const groupId = Number(targetGroupHeader.dataset.groupId);
+    const winId = Number(targetGroupHeader.dataset.windowId);
+
+    items.push({
+      label: 'View group',
+      action: async () => {
+        // Focus first tab in group?
+        const win = activeWindowsCache.find(w => w.id === winId);
+        if (win) {
+          const groupTabs = win.tabs.filter(t => t.groupId === groupId);
+          if (groupTabs.length) {
+            await sendMessage({ type: 'focus-tab', tabId: groupTabs[0].id });
+          }
+        }
+      }
+    });
+
+    // Change Group Color
+    const colors = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+    // Find current color
+    const win = activeWindowsCache.find(w => w.id === winId);
+    let currentColor = '';
+    if (win) {
+      const group = win.groups.find(g => g.id === groupId);
+      if (group) currentColor = group.color;
+    }
+
+    items.push({
+      label: 'Color',
+      // submenuLayout: 'grid', // Removed grid layout
+      submenu: colors.map(color => ({
+        label: color.charAt(0).toUpperCase() + color.slice(1),
+        // colorCode: colorToHex(color), // Removed swatch
+        textColor: colorToHex(color), // Added colored text
+        active: color === currentColor,
+        action: async () => {
+          await sendMessage({
+            type: 'update-group',
+            groupId: groupId,
+            updateProperties: { color: color }
+          });
+          await loadActiveWindows();
+        }
+      }))
+    });
+
+    items.push({
+      label: 'Un-group',
+      action: async () => {
+        const win = activeWindowsCache.find(w => w.id === winId);
+        if (win) {
+          const groupTabs = win.tabs.filter(t => t.groupId === groupId);
+          if (groupTabs.length) {
+            await sendMessage({
+              type: 'assign-group',
+              tabIds: groupTabs.map(t => t.id),
+              groupId: -1
+            });
+            await loadActiveWindows();
+          }
+        }
+      }
+    });
+
+    // Move group submenu
+    const moveSubmenu = await buildMoveSubmenu((targetWinId) => {
+      return sendMessage({
+        type: 'move-group',
+        groupId: groupId,
+        windowId: targetWinId,
+        index: -1
+      }).then(() => loadActiveWindows());
+    });
+
+    items.push({
+      label: 'Move group',
+      submenu: moveSubmenu.length ? moveSubmenu : [{ label: 'No other windows', info: true }]
+    });
+
+    items.push({
+      label: 'Close group',
+      danger: true,
+      action: async () => {
+        // Close all tabs in group
+        const win = activeWindowsCache.find(w => w.id === winId);
+        if (win) {
+          const groupTabs = win.tabs.filter(t => t.groupId === groupId);
+          if (groupTabs.length) {
+            await sendMessage({ type: 'close-tabs', tabIds: groupTabs.map(t => t.id) });
+            await loadActiveWindows();
+          }
+        }
+      }
+    });
+
+  } else if (selectedTabsCount > 0) {
+    // --- Selection Mode ---
+
+    // Calculate stats
+    const selectedTabIds = selectedTabInputs.map(input => Number(input.dataset.tabId));
+    const distinctGroups = new Set();
+    const distinctWindows = new Set();
+
+    selectedTabInputs.forEach(input => {
+      if (input.dataset.groupId) distinctGroups.add(input.dataset.groupId);
+      if (input.dataset.windowId) distinctWindows.add(input.dataset.windowId);
+    });
+
+    items.push({
+      label: `Selected ${selectedTabsCount} tabs`,
+      info: true,
+      meta: `across ${distinctGroups.size} group(s) in ${distinctWindows.size} window(s)`
+    });
+
+    if (targetCard) {
+      // Pointer inside window area
+      items.push({
+        label: 'Create new group',
+        action: async () => {
+          const windowId = Number(targetCard.dataset.winId);
+          await sendMessage({
+            type: 'assign-group',
+            tabIds: selectedTabIds,
+            groupId: 'new',
+            windowId: windowId,
+            title: 'New Group',
+            color: 'blue'
+          });
+          await loadActiveWindows();
+        }
+      });
+
+      // Move selection to this window implemented? 
+      // It's covered by 'Move selection to new window' logic below for OUTSIDE context.
+      // But if I right click inside a DIFFERENT window, maybe I want to move selected tabs HERE?
+      // Logic from before:
+      // "At closest position of mouse pointer create new group and move selected tabs into that group"
+      // So the strict "Move here" logic is tied to "Create new group" above.
+
+    } else {
+      // Pointer outside window area
+      items.push({
+        label: 'Move selection to new window',
+        action: async () => {
+          await sendMessage({
+            type: 'move-to-new-window',
+            kind: 'tabs',
+            tabIds: selectedTabIds
+          });
+          await loadActiveWindows();
+          selectTabs(selectedTabIds);
+        }
+      });
+
+      if (distinctGroups.size > 0) {
+        items.push({
+          label: 'Move grouped selection to new window',
+          action: async () => {
+            await sendMessage({
+              type: 'move-to-new-window',
+              kind: 'tabs',
+              tabIds: selectedTabIds
+            });
+            await loadActiveWindows();
+            selectTabs(selectedTabIds);
+          }
+        });
+      }
+    }
+
+  } else {
+    // --- No Selection & No Group Header ---
+
+
+    if (targetTabItem) {
+      const tabId = Number(targetTabItem.dataset.tabId);
+      const winId = Number(targetTabItem.dataset.windowId);
+
+
+
+      // Move tab submenu
+      const moveSubmenu = await buildMoveSubmenu(
+        (targetWinId, targetGroupId) => {
+          return sendMessage({
+            type: 'move-tab',
+            tabIds: [tabId],
+            windowId: targetWinId,
+            index: -1
+            // If group is specified, we might need to then group it. 
+            // 'move-tab' only moves window/index. 
+            // Adding group support to moveSubmenu logic is needed.
+          }).then(async () => {
+            if (targetGroupId !== undefined) {
+              await sendMessage({ type: 'assign-group', tabIds: [tabId], groupId: targetGroupId });
+            }
+            await loadActiveWindows();
+          });
+        },
+        async (targetIndex) => {
+          const newWindow = await sendMessage({
+            type: 'move-to-new-window',
+            kind: 'tab',
+            tabId: tabId
+          });
+          if (newWindow) {
+            const order = activeWindowsCache.map(w => w.id);
+            order.splice(targetIndex, 0, newWindow.id);
+            await saveWindowOrder(order);
+            await loadActiveWindows();
+          }
+        }
+      );
+
+      items.push({
+        label: 'Move tab',
+        submenu: moveSubmenu.length ? moveSubmenu : [{ label: 'No other windows', info: true }]
+      });
+
+      items.push({
+        label: 'Close tab',
+        danger: true,
+        action: async () => {
+          await sendMessage({ type: 'close-tabs', tabIds: [tabId] });
+          await loadActiveWindows();
+        }
+      });
+
+    } else if (targetGroupHeader) {
+      const groupId = Number(targetGroupHeader.dataset.groupId);
+      const winId = Number(targetGroupHeader.dataset.windowId);
+
+      items.push({
+        label: 'View group',
+        action: async () => {
+          // Focus first tab in group?
+          const win = activeWindowsCache.find(w => w.id === winId);
+          if (win) {
+            const groupTabs = win.tabs.filter(t => t.groupId === groupId);
+            if (groupTabs.length) {
+              await sendMessage({ type: 'focus-tab', tabId: groupTabs[0].id });
+            }
+          }
+        }
+      });
+
+      // Change Group Color
+      const colors = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+      // Find current color
+      const win = activeWindowsCache.find(w => w.id === winId);
+      let currentColor = '';
+      if (win) {
+        const group = win.groups.find(g => g.id === groupId);
+        if (group) currentColor = group.color;
+      }
+
+      items.push({
+        label: 'Color',
+        submenuLayout: 'grid',
+        submenu: colors.map(color => ({
+          label: color.charAt(0).toUpperCase() + color.slice(1),
+          colorCode: colorToHex(color),
+          active: color === currentColor, // Add active flag
+          action: async () => {
+            await sendMessage({
+              type: 'update-group',
+              groupId: groupId,
+              updateProperties: { color: color }
+            });
+            await loadActiveWindows();
+          }
+        }))
+      });
+
+      items.push({
+        label: 'Un-group',
+        action: async () => {
+          const win = activeWindowsCache.find(w => w.id === winId);
+          if (win) {
+            const groupTabs = win.tabs.filter(t => t.groupId === groupId);
+            if (groupTabs.length) {
+              await sendMessage({
+                type: 'assign-group',
+                tabIds: groupTabs.map(t => t.id),
+                groupId: -1
+              });
+              await loadActiveWindows();
+            }
+          }
+        }
+      });
+
+      // Move group submenu
+      const moveSubmenu = await buildMoveSubmenu(
+        (targetWinId) => {
+          return sendMessage({
+            type: 'move-group',
+            groupId: groupId,
+            windowId: targetWinId,
+            index: -1
+          }).then(() => loadActiveWindows());
+        },
+        async (targetIndex) => {
+          const newWindow = await sendMessage({
+            type: 'move-to-new-window',
+            kind: 'group',
+            groupId: groupId
+          });
+          if (newWindow) {
+            const order = activeWindowsCache.map(w => w.id);
+            order.splice(targetIndex, 0, newWindow.id);
+            await saveWindowOrder(order);
+            await loadActiveWindows();
+          }
+        }
+      );
+
+      items.push({
+        label: 'Move group',
+        submenu: moveSubmenu.length ? moveSubmenu : [{ label: 'No other windows', info: true }]
+      });
+
+      items.push({
+        label: 'Close group',
+        danger: true,
+        action: async () => {
+          // Close all tabs in group
+          const win = activeWindowsCache.find(w => w.id === winId);
+          if (win) {
+            const groupTabs = win.tabs.filter(t => t.groupId === groupId);
+            if (groupTabs.length) {
+              await sendMessage({ type: 'close-tabs', tabIds: groupTabs.map(t => t.id) });
+              await loadActiveWindows();
+            }
+          }
+        }
+      });
+
+    } else if (!targetCard) {
+      // In-between windows
+      items.push({
+        label: 'New browser window',
+        action: async () => {
+          await sendMessage({ type: 'create-window' });
+          // Ideally we should reload active windows but the create event might not be instant or monitored?
+          // Since manager is an extension page, we might not get notified unless we poll or focus.
+          // But existing behavior has 'refresh'. We can try to reload.
+          setTimeout(loadActiveWindows, 500);
+        }
+      });
+    }
+  }
+
+  renderContextMenu(items, x, y);
+}
+
+function renderContextMenu(items, x, y) {
+  if (!items.length) return;
+
+  contextMenu.innerHTML = '';
+
+  function buildMenu(menuItems, parent) {
+    menuItems.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'menu-item';
+
+      if (item.info) {
+        el.classList.add('info');
+        el.innerHTML = `<strong>${item.label}</strong><br><span class="meta">${item.meta}</span>`;
+        parent.appendChild(el);
+        return;
+      }
+
+      if (item.colorCode) {
+        // Render as color swatch
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.backgroundColor = item.colorCode;
+        swatch.title = item.label; // Tooltip for accessibility
+
+        if (item.active) {
+          swatch.style.boxShadow = 'inset 0 0 0 2px white, 0 0 0 2px var(--text)';
+          swatch.style.transform = 'scale(1.1)';
+        }
+
+        el.appendChild(swatch);
+      } else {
+        el.textContent = item.label;
+        if (item.textColor) {
+          el.style.color = item.textColor;
+          el.style.fontWeight = '700';
+        }
+        if (item.bold) {
+          el.style.fontWeight = '700';
+        }
+        if (item.active) {
+          const check = document.createElement('span');
+          check.textContent = ' ✓';
+          check.style.marginLeft = 'auto';
+          check.style.fontWeight = 'bold';
+          el.appendChild(check);
+          el.style.display = 'flex'; // Ensure flex layout for checkmark alignment
+          el.style.justifyContent = 'space-between';
+        }
+      }
+
+      if (item.danger) el.classList.add('danger');
+      if (item.submenu) {
+        el.classList.add('has-submenu');
+        el.classList.add('has-submenu');
+        // Arrow is handled by CSS ::after on .has-submenu to keep it clean
+        // Removing the manual span creation if we use CSS ::after 
+        // OR we can keep the span but make it empty and styled.
+        // Let's use the pure CSS approach usually used in the styles I see.
+        // Checking styles.css, I see: #context-menu .menu-item.has-submenu::after { content: '▸'; ... }
+        // BUT wait, line 1866 created a span. 
+        // Existing styles.css line 639 ALREADY has a rule for ::after with content '▸'.
+        // So we might have DOUBLE arrows right now? '▶' from JS and '▸' from CSS?
+        // Let's remove the JS arrow creation entirely and rely on CSS.
+
+
+        const sub = document.createElement('div');
+        sub.className = 'submenu';
+        if (item.submenuLayout === 'grid') {
+          sub.classList.add('grid-layout');
+        }
+        buildMenu(item.submenu, sub);
+        el.appendChild(sub);
+      }
+
+      if (item.action) {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // Normally close menu on action
+          item.action();
+          contextMenu.style.display = 'none';
+        });
+      }
+
+      parent.appendChild(el);
+    });
+  }
+
+  buildMenu(items, contextMenu);
+
+  contextMenu.style.left = `${x}px`;
+  contextMenu.style.top = `${y}px`;
+  contextMenu.style.display = 'block';
+
+  // Adjust if out of bounds
+  const rect = contextMenu.getBoundingClientRect();
+  if (rect.right > window.innerWidth) {
+    contextMenu.style.left = `${x - rect.width}px`;
+  }
+  if (rect.bottom > window.innerHeight) {
+    contextMenu.style.top = `${y - rect.height}px`;
+  }
+}
+
+async function buildMoveSubmenu(onSelect, onNewWindowAtIndex) {
+  // Returns Items for submenu
+  // Tree: Window -> Groups
+  const windows = activeWindowsCache || [];
+  const menuItems = [];
+
+  // Fetch all groups globally to ensure they are available even for collapsed windows
+  let allGroups = [];
+  try {
+    allGroups = await sendMessage({ type: 'get-all-groups' });
+  } catch (err) {
+    console.warn('Failed to fetch groups for submenu:', err);
+  }
+
+  // Map groups to windows
+  const windowGroups = new Map();
+  allGroups.forEach(g => {
+    if (!windowGroups.has(g.windowId)) {
+      windowGroups.set(g.windowId, []);
+    }
+    windowGroups.get(g.windowId).push(g);
+  });
+
+  windows.forEach((win, index) => {
+    // Interleaved New Window Option
+    if (onNewWindowAtIndex) {
+      menuItems.push({
+        label: '--- [ new window ] ---',
+        action: () => onNewWindowAtIndex(index)
+      });
+    }
+
+    // Option to move to Window itself
+    menuItems.push({
+      label: `[${index + 1}] ${win.title}`,
+      bold: true,
+      action: () => onSelect(win.id)
+    });
+
+    // Groups within window
+    const groups = windowGroups.get(win.id) || [];
+    if (groups.length) {
+      groups.forEach(g => {
+        menuItems.push({
+          label: `  ↳ ${g.title}`,
+          textColor: colorToHex(g.color),
+          action: () => onSelect(win.id, g.id)
+        });
+      });
+    }
+  });
+
+  // Final New Window Option
+  if (onNewWindowAtIndex) {
+    menuItems.push({
+      label: '--- [ new window ] ---',
+      action: () => onNewWindowAtIndex(windows.length)
+    });
+  }
+
+  return menuItems;
+}
+
+
+
+// Attach container-level drag listeners
+activeListEl.addEventListener('dragover', handleWindowDragOver);
+
+
+// Start the application
+loadAll();
+
