@@ -946,7 +946,7 @@ function renderReadOnlyWindowContent(win, container) {
     div.className = 'read-only-item';
 
     // Checkbox for selection (Enable Actions)
-    const checkbox = createSelectCheckbox('tab', { tabId: tab.id });
+    const checkbox = createSelectCheckbox('tab', { windowId: win.id, tabId: tab.id });
     div.appendChild(checkbox);
 
     if (tab.favicon) {
