@@ -766,12 +766,15 @@ function createWindowCard(win) {
         .map(input => Number(input.dataset.tabId))
         .filter(tabId => windowTabIds.includes(tabId));
 
-      if (!checkedTabIds.length) {
-        toast('Select at least one tab in this window to save.');
+      // Smart Save: If nothing selected, save ALL tabs in this window
+      const targetTabIds = checkedTabIds.length > 0 ? checkedTabIds : windowTabIds;
+
+      if (!targetTabIds.length) {
+        toast('No tabs to save in this window.');
         return;
       }
 
-      await saveMarkdownForTabIds(checkedTabIds);
+      await saveMarkdownForTabIds(targetTabIds);
     } catch (err) {
       toast(err.message);
     } finally {
