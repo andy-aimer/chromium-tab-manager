@@ -73,10 +73,10 @@ body {
 }
 
 .icon-button {
-  padding: .1rem;
+  padding: .25rem;
   font-size: 0.8rem;
-  width: 0.9rem;
-  height: 0.9rem;
+  width: auto;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
