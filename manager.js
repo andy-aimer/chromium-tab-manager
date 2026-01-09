@@ -945,6 +945,10 @@ function renderReadOnlyWindowContent(win, container) {
     const div = document.createElement('div');
     div.className = 'read-only-item';
 
+    // Checkbox for selection (Enable Actions)
+    const checkbox = createSelectCheckbox('tab', { tabId: tab.id });
+    div.appendChild(checkbox);
+
     if (tab.favicon) {
       const img = document.createElement('img');
       img.src = tab.favicon;
@@ -953,8 +957,18 @@ function renderReadOnlyWindowContent(win, container) {
       div.appendChild(img);
     }
 
+    // ... rest of item creation
     const titleSpan = document.createElement('span');
     titleSpan.textContent = tab.title || 'Untitled Tab';
+
+    // Add click-to-select behavior on title
+    titleSpan.style.cursor = 'default';
+    titleSpan.addEventListener('click', (e) => {
+      // Simple toggle for read-only mode
+      checkbox.checked = !checkbox.checked;
+      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
     div.appendChild(titleSpan);
 
     if (tab.url) {
