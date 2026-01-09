@@ -145,7 +145,6 @@ menu button {
   transition: background .2s ease;
 }
 
-
 button.primary {
   color: #fff;
   border-color: transparent;
@@ -274,12 +273,12 @@ button.danger {
   background: #7dd3fc;
   color: white;
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  width: 1.25rem;
+  height: 1.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: bold;
 }
 
@@ -467,8 +466,8 @@ menu {
 }
 
 .tab-icon {
-  width: 16px;
-  height: 16px;
+  width: 1rem;
+  height: 1rem;
   margin-right: .35rem;
   object-fit: contain;
   vertical-align: middle;
@@ -579,7 +578,7 @@ menu {
   width: 1rem;
   height: 1rem;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   padding: 0;
   margin: 0;
@@ -588,12 +587,12 @@ menu {
   font-weight: 1200;
   line-height: 1;
   order: 0;
-  align-self: flex-start;
+
 }
 
 .toggle-tabs-right {
   margin-left: .35rem;
-  order: 4;
+
 }
 
 .toggle-tabs.collapsed {
@@ -608,18 +607,18 @@ menu {
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 4px 0;
+  padding: 0.25rem 0;
 
   color: var(--text);
   font-size: 0.9rem;
 }
 
 #context-menu .menu-item {
-  padding: 6px 12px;
+  padding: 0.375rem 0.75rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   position: relative;
 }
 
@@ -637,8 +636,8 @@ menu {
   cursor: default;
   font-weight: 600;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 6px;
-  margin-bottom: 4px;
+  padding-bottom: 0.375rem;
+  margin-bottom: 0.25rem;
 }
 
 #context-menu .menu-item.info:hover {
@@ -650,7 +649,7 @@ menu {
   color: var(--muted);
   font-weight: normal;
   display: block;
-  margin-top: 2px;
+  margin-top: 0.125rem;
 }
 
 #context-menu .menu-item.has-submenu {
@@ -660,7 +659,7 @@ menu {
 #context-menu .divider {
   height: 1px;
   background: var(--border);
-  margin: 4px 0;
+  margin: 0.25rem 0;
 }
 
 #context-menu .menu-item.has-submenu::after {
@@ -678,9 +677,9 @@ menu {
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 4px 0;
-  min-width: 180px;
-  margin-left: 4px;
+  padding: 0.25rem 0;
+  min-width: 11.25rem;
+  margin-left: 0.25rem;
 }
 
 #context-menu .menu-item:hover>.submenu {
@@ -702,8 +701,8 @@ menu {
   padding: 0;
   justify-content: center;
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 1.5rem;
+  height: 1.5rem;
   margin: auto;
 }
 
@@ -766,7 +765,7 @@ menu {
 .toggle-wrapper {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   margin-right: 0.5rem;
   min-width: 1.5rem;
 }
@@ -781,7 +780,7 @@ menu {
 
 .interactive-toggle {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   cursor: pointer;
   opacity: 0.6;
   transition: opacity 0.2s;
@@ -852,19 +851,19 @@ menu {
 
 #toast-container {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  bottom: 1.25rem;
+  right: 1.25rem;
   z-index: 10000;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.625rem;
   max-width: 300px;
 }
 
 .toast {
   background: #333;
   color: white;
-  padding: 10px 16px;
+  padding: 0.625rem 1rem;
   border-radius: 4px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   font-size: 0.9rem;
@@ -897,8 +896,8 @@ menu {
 
 
 .icon-button svg {
-  width: 22px;
-  height: 22px;
+  width: 1rem;
+  height: 1rem;
   stroke: currentColor;
   fill: none;
   stroke-width: 1.5;
@@ -906,8 +905,8 @@ menu {
 
 .toggle-tabs svg,
 .toggle-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 1rem;
+  height: 1rem;
   stroke: currentColor;
   fill: none;
   stroke-width: 1.5;
@@ -926,14 +925,14 @@ menu {
 .read-only-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.3rem;
   overflow: hidden;
   white-space: nowrap;
 }
 
 .read-only-favicon {
-  width: 16px;
-  height: 16px;
+  width: 1rem;
+  height: 1rem;
   filter: grayscale(100%);
   opacity: 0.8;
   flex-shrink: 0;
@@ -945,12 +944,13 @@ menu {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-left: auto;
+  align-items: flex-end;
   max-width: 40%;
 }
 
 
 #sessions-modal {
-  width: 500px;
+  width: 31.25rem;
   max-width: 90vw;
 }
 
@@ -962,7 +962,7 @@ menu {
 
 .new-session-form input {
   flex: 1;
-  padding: 8px;
+  padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
 }
@@ -971,7 +971,7 @@ menu {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 400px;
+  max-height: 25rem;
   overflow-y: auto;
 }
 
@@ -979,7 +979,7 @@ menu {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px;
+  padding: 0.625rem;
   background: white;
   border: 1px solid #ddd;
   border-radius: 6px;
@@ -1016,7 +1016,7 @@ menu {
   background: #3b82f6;
   color: white;
   border: none;
-  padding: 6px 12px;
+  padding: 0.375rem 0.75rem;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.85rem;

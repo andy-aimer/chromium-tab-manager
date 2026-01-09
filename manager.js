@@ -40,7 +40,7 @@ const applyCardMetaSetting = (show) => {
   } else {
     document.body.classList.add('hide-card-meta');
   }
-}
+};
 
 
 const closeSettings = () => {
@@ -908,6 +908,50 @@ function createWindowCard(win) {
     });
   });
 
+  // Create toggle-wrapper-right div
+  const toggleWrapperRight = document.createElement('div');
+  toggleWrapperRight.className = 'toggle-wrapper-right';
+
+  // Create interactive-toggle for the right side
+  const interactiveToggleRightLabel = document.createElement('label');
+  interactiveToggleRightLabel.className = 'interactive-toggle';
+  interactiveToggleRightLabel.innerHTML = `
+    <input type="checkbox" class="interactive-checkbox">
+    <span class="toggle-icon">${Icons.lockClosed}</span>
+  `;
+
+  const interactiveToggleRight = interactiveToggleRightLabel.querySelector('.interactive-checkbox');
+  const toggleIconRight = interactiveToggleRightLabel.querySelector('.toggle-icon');
+
+  const updateIconRight = (checked) => {
+    if (toggleIconRight) toggleIconRight.innerHTML = checked ? Icons.lockOpen : Icons.lockClosed;
+  };
+
+  const isInteractiveRight = windowInteractionState.get(win.id) || false;
+  interactiveToggleRight.checked = isInteractiveRight;
+  updateIconRight(isInteractiveRight);
+
+  interactiveToggleRight.addEventListener('change', () => {
+    windowInteractionState.set(win.id, interactiveToggleRight.checked);
+    updateIconRight(interactiveToggleRight.checked);
+
+    // Reload content if expanded
+    const container = card.querySelector('.tab-list');
+    if (container && !container.hasAttribute('hidden')) {
+      loadWindowDetails(win.id, card);
+    }
+  });
+
+  // Move the toggle-tabs-right button into the toggle-wrapper-right
+  const toggleBtnRight = card.querySelector('.toggle-tabs.toggle-tabs-right');
+  if (toggleBtnRight) {
+    toggleWrapperRight.appendChild(interactiveToggleRightLabel);
+    toggleWrapperRight.appendChild(toggleBtnRight);
+  }
+
+  // Append the toggle-wrapper-right to the header
+  header.appendChild(toggleWrapperRight);
+
   // Auto-expand if window is focused
   // Auto-expand all windows (User Preference)
   if (true) {
@@ -1462,7 +1506,7 @@ function handleWindowDrop(event) {
     const newIndex = before ? targetCardIndex : targetCardIndex + 1;
 
     // Delegate to handleMoveToNewWindow or similar logic
-    // existing logic: handleMoveToNewWindow(items, newIndex) ? 
+    // existing logic: handleMoveToNewWindow(items, newIndex) ?
     // We can reuse the message 'move-to-new-window' passing tabIds or groupId
 
     const items = dragContext.tabIds || (dragContext.groupId ? { groupId: dragContext.groupId } : null);
@@ -3114,10 +3158,10 @@ async function buildMoveSubmenu(onSelect, onNewWindowAtIndex) {
 
 
 
+
 // Attach container-level drag listeners
 activeListEl.addEventListener('dragover', handleWindowDragOver);
 
 
 // Start the application
 loadAll();
-
