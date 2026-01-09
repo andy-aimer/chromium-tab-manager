@@ -204,6 +204,7 @@ class CommandManager {
           const win = await chrome.windows.create({ tabId: first });
           if (others.length) await chrome.tabs.move(others, { windowId: win.id, index: -1 });
         }
+        break;
       case 'get-tab-count':
         return await getTotalTabCount();
       case 'get-all-groups':
@@ -484,6 +485,10 @@ function buildWindowTitle(win) {
   }
 }
 
+async function getTotalTabCount() {
+  const windows = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
+  return windows.reduce((total, win) => total + (win.tabs ? win.tabs.length : 0), 0);
+}
 
 async function assignToGroup(message) {
   const tabIds = Array.isArray(message.tabIds) ? message.tabIds : [message.tabId];
@@ -507,7 +512,7 @@ async function assignToGroup(message) {
 }
 
 function sanitizeFilename(value) {
-  const cleaned = value.replace(/[\u0000-\u001f<>:"/\\|?*]+/g, ' ').trim();
+  const cleaned = value.replace(/[\u0000-\u001f<>:\"/\\|?*]+/g, ' ').trim();
   return cleaned || 'untitled';
 }
 
@@ -584,7 +589,7 @@ async function extractMarkdownFromTab(tabId) {
           return `*${renderInlineChildren(node)}*`;
         }
         if (tag === 'code') {
-          return `\`${(node.textContent || '').trim()}\``;
+          return\`\`${(node.textContent || '').trim()}\`\`;
         }
         if (tag === 'a') {
           const href = node.getAttribute('href') || '';
@@ -629,7 +634,7 @@ async function extractMarkdownFromTab(tabId) {
         }
         if (tag === 'pre') {
           const text = node.textContent || '';
-          return `\`\`\`\n${text.replace(/\n{3,}/g, '\n\n')}\n\`\`\`\n\n`;
+          return\`\`\`\n${text.replace(/\n{3,}/g, '\n\n')}\n\`\`\`\n\n\`;
         }
         if (tag === 'blockquote') {
           const text = renderInlineChildren(node);
@@ -919,7 +924,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
           )
         );
-        break;
         break;
       }
 
