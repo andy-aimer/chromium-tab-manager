@@ -57,6 +57,7 @@ body {
   justify-content: flex-end;
   align-items: center;
   gap: 0.5rem;
+  font-size: 0.84rem;
 }
 
 .divider-v {
@@ -896,8 +897,8 @@ menu {
 
 
 .icon-button svg {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   stroke: currentColor;
   fill: none;
   stroke-width: 1.5;
@@ -905,8 +906,8 @@ menu {
 
 .toggle-tabs svg,
 .toggle-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   stroke: currentColor;
   fill: none;
   stroke-width: 1.5;
@@ -914,12 +915,12 @@ menu {
 
 .icon-button:hover svg {
   stroke: #2563eb;
-  
+
 }
 
 .icon-button.danger:hover svg {
   stroke: #ef4444;
-  
+
 }
 
 .read-only-item {
