@@ -877,6 +877,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         );
         break;
       }
+      case 'focus-tab': {
+      const { tabId } = message;
+      await chrome.tabs.update(tabId, { active: true });
+      const tab = await chrome.tabs.get(tabId);
+      await chrome.windows.update(tab.windowId, { focused: true });
+      
+      // Check if the tab is part of the "Heaps o' Tabs" manager
+      const managerTabs = await chrome.tabs.query({ url: MANAGER_URL });
+      const isManagerTab = managerTabs.some(t => t.id === tabId);
+      
+      if (isManagerTab) {
+        // Move the manager tab to the newly focused window
+        const currentWindow = await chrome.windows.getCurrent();
+        if (currentWindow.id !== tab.windowId) {
+          await chrome.tabs.move(tabId, { windowId: tab.windowId, index: 0 });
+        }
+      } else {
+        // Move the manager tab to the newly focused window
+        const managerTab = managerTabs[0];
+        if (managerTab) {
+          await chrome.tabs.move(managerTab.id, { windowId: tab.windowId, index: 0 });
+        }
+      }
+      
+      respond(true);
+      break;
+      }
+
       case 'move-tab': {
         const tabIds = Array.isArray(message.tabIds) ? message.tabIds : [message.tabId];
         const { windowId, index } = message;
