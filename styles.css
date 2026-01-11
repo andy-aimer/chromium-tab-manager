@@ -167,12 +167,18 @@ button.danger {
   margin-top: 0rem;
   margin-left: 0.6rem;
   margin-right: 0.6rem;
-  background: #f1f5f9;
+  background: #FFFFFF;
   break-inside: avoid;
 
   content-visibility: auto;
   contain-intrinsic-size: 100px 300px;
 
+}
+
+.card.window-focused {
+  background: #FFFFFF;
+  border: 2px solid #2563eb;
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.3);
 }
 
 .card.dragging {

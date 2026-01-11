@@ -1088,3 +1088,24 @@ chrome.commands.onCommand.addListener(async command => {
 chrome.action.onClicked.addListener(async () => {
   await openManagerTab();
 });
+
+// Add event listener for window focus changes
+chrome.windows.onFocusChanged.addListener(async (windowId) => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) {
+    return; // No window is focused
+  }
+
+  try {
+    // Get the currently focused window
+    const focusedWindow = await chrome.windows.get(windowId, { populate: false });
+    
+    // Send message to manager to update UI
+    chrome.runtime.sendMessage({
+      type: 'window-focus-changed',
+      windowId: focusedWindow.id,
+      focused: true
+    });
+  } catch (error) {
+    console.error('Error handling window focus change:', error);
+  }
+});

@@ -3180,6 +3180,27 @@ async function buildMoveSubmenu(onSelect, onNewWindowAtIndex) {
 // Attach container-level drag listeners
 activeListEl.addEventListener('dragover', handleWindowDragOver);
 
+// Add message listener for window focus changes
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'window-focus-changed') {
+    updateWindowFocusInUI(message.windowId);
+    sendResponse({ success: true });
+  }
+});
+
+// Function to update window focus in UI
+function updateWindowFocusInUI(focusedWindowId) {
+  // Remove focus from all cards first
+  document.querySelectorAll('.card').forEach(card => {
+    card.classList.remove('window-focused');
+  });
+  
+  // Add focus to the focused window's card
+  const focusedCard = document.querySelector(`.card[data-win-id="${focusedWindowId}"]`);
+  if (focusedCard) {
+    focusedCard.classList.add('window-focused');
+  }
+}
 
 // Start the application
 loadAll();
